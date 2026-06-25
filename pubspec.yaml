@@ -1,0 +1,58 @@
+name: femcycle
+description: FemCycle - A Mobile Application for Menstrual Health Monitoring
+publish_to: 'none'
+version: 1.0.0+1
+ 
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+ 
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.0               # For API calls to Laravel backend  # For Remember Me / local storage
+  flutter_secure_storage: ^9.0.0  # For storing auth tokens securely
+  provider: ^6.1.2           # For dark mode state management
+  url_launcher: ^6.3.0        # opens URLs in the device browser
+  shared_preferences: ^2.3.0  # local data persistence
+  intl: ^0.19.0 
+ 
+ 
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+ 
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/lifestyle/yoga/
+    - assets/images/lifestyle/pilates/
+    - assets/images/lifestyle/stretching/
+    - assets/images/lifestyle/hiit/
+ 
+  # Add your custom fonts here
+  fonts:
+    - family: Magra
+      fonts:
+        - asset: assets/fonts/Magra-Regular.ttf
+        - asset: assets/fonts/Magra-Bold.ttf
+          weight: 700
+
+    - family: Mallanna
+      fonts:
+        - asset: assets/fonts/Mallanna-Regular.ttf
+
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/Archivo-Italic-VariableFont_wdth,wght.ttf
+        - asset: assets/fonts/Archivo-VariableFont_wdth,wght.ttf
+          weight: 500
+
+    - family: Kodchasan
+      fonts:
+        - asset: assets/fonts/Kodchasan-Regular.ttf
+        - asset: assets/fonts/Kodchasan-Medium.ttf
+          weight: 500
