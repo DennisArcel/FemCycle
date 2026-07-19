@@ -264,4 +264,219 @@ class ApiService {
       return {'success': true};
     }
   }
+
+  // ── DIARY: GET ALL ENTRIES ──────────────────────────────────────────
+  static Future<Map<String, dynamic>> getDiaryEntries() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/diary'),
+        headers: await _authHeaders(),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return {'success': true, 'data': body as List<dynamic>};
+      } else {
+        return {
+          'success': false,
+          'message': 'Could not load diary entries.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
+  // ── DIARY: CREATE ENTRY ─────────────────────────────────────────────
+  static Future<Map<String, dynamic>> createDiaryEntry({
+    required String title,
+    required String body,
+    String? mood,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/diary'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'title': title,
+          'body': body,
+          'mood': mood,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        return {'success': true, 'entry': responseBody['entry']};
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Could not save entry.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
+  // ── DIARY: UPDATE ENTRY ─────────────────────────────────────────────
+  static Future<Map<String, dynamic>> updateDiaryEntry({
+    required int id,
+    required String title,
+    required String body,
+    String? mood,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/diary/$id'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'title': title,
+          'body': body,
+          'mood': mood,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'entry': responseBody['entry']};
+      } else {
+        return {
+          'success': false,
+          'message': responseBody['message'] ?? 'Could not update entry.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
+  // ── DIARY: DELETE ENTRY ─────────────────────────────────────────────
+  static Future<Map<String, dynamic>> deleteDiaryEntry(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/diary/$id'),
+        headers: await _authHeaders(),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        return {
+          'success': false,
+          'message': 'Could not delete entry.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
+  // ── GET PROFILE ───────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> getProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user/profile'),
+        headers: await _authHeaders(),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'user': jsonDecode(response.body)};
+      } else {
+        return {'success': false, 'message': 'Could not load profile.'};
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
+  // ── UPDATE PROFILE ────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> updateProfile({
+    required String firstName,
+    String? middleName,
+    required String lastName,
+    required String email,
+    String? birthday,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/user/profile'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'first_name': firstName,
+          'middle_name': middleName,
+          'last_name': lastName,
+          'email': email,
+          'birthday': birthday,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'user': body['user']};
+      } else {
+        return {
+          'success': false,
+          'message': body['message'] ?? 'Could not update profile.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
+  // ── CHANGE PASSWORD ───────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/user/change-password'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'password': newPassword,
+          'password_confirmation': newPasswordConfirmation,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        return {
+          'success': false,
+          'message': body['message'] ?? 'Could not update password.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
 }

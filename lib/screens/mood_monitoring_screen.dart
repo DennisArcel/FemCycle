@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../theme/theme_provider.dart';
 
 // ── Sample cycle data (in real app, passed in or fetched from API) ────────────
@@ -28,6 +31,45 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
   void initState() {
     super.initState();
     _currentMonth = DateTime(_today.year, _today.month);
+    _fetchPredictions();
+  }
+
+  // ── Predictions API — same endpoint the home screen uses ─────────────────
+  static const String _apiBase = 'http://127.0.0.1:8000/api/period-logs'; // Laravel IP
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  bool _isLoadingPredictions = true;
+  Map<String, dynamic>? _predictions; // raw response from /predictions
+
+  Future<Map<String, String>> _getHeaders() async {
+    String? token = await _storage.read(key: 'auth_token');
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer ${token ?? ''}',
+    };
+  }
+
+  Future<void> _fetchPredictions() async {
+    setState(() => _isLoadingPredictions = true);
+    try {
+      final headers = await _getHeaders();
+      final response =
+          await http.get(Uri.parse('$_apiBase/predictions'), headers: headers);
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        setState(() {
+          _predictions = json.decode(response.body);
+          _isLoadingPredictions = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() => _isLoadingPredictions = false);
+      }
+    } catch (e) {
+      debugPrint('Error fetching predictions: $e');
+      if (!mounted) return;
+      setState(() => _isLoadingPredictions = false);
+    }
   }
 
   // ── Derived data for this month ───────────────────────────────────────────
@@ -72,72 +114,71 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
   // Period days count this month
   int get _periodDaysCount => _thisMonthEntries.length;
 
-  // ── PCOS risk detection ───────────────────────────────────────────────────
-  // Based solely on period-related symptoms logged:
-  // - Irregular/delayed period (few days logged vs expected ~5)
-  // - Heavy flow dominance
-  // - Persistent exhaustion/fatigue
+  // ── PCOS risk — now sourced from the server, which looks at ALL logged
+  // history (irregularity across cycles + flow heaviness), not just this
+  // month. Falls back to a neutral "not enough data" state while loading
+  // or if the request hasn't returned yet.
+  Map<String, dynamic> get _pcosRiskData =>
+      _predictions?['pcos_risk'] as Map<String, dynamic>? ??
+      {'level': 'insufficient_data', 'score': 0, 'symptoms': <String>[]};
 
   String get _pcosRisk {
-    int score = 0;
-
-    // 1. Very few period days logged this month (possible delayed/missed period)
-    if (_periodDaysCount == 0) score += 3;
-    else if (_periodDaysCount < 3) score += 1;
-
-    // 2. Predominantly heavy flow
-    if (_dominantFlow == 'Heavy' || _dominantFlow == 'Super Heavy') score += 2;
-
-    // 3. Persistent fatigue/exhaustion
-    if (_dominantEnergy == 'Exhausted') score += 2;
-    else if (_dominantEnergy == 'Tired') score += 1;
-
-    if (score >= 5) return 'High';
-    if (score >= 3) return 'Moderate';
-    if (score >= 1) return 'Low';
-    return 'None';
-  }
-
-  String get _pcosRiskPercent {
-    switch (_pcosRisk) {
-      case 'High':     return '75%';
-      case 'Moderate': return '40%';
-      case 'Low':      return '15%';
-      default:         return '0%';
+    switch (_pcosRiskData['level']) {
+      case 'high':     return 'High';
+      case 'moderate': return 'Moderate';
+      case 'low':      return 'Low';
+      case 'none':     return 'None';
+      default:         return 'Not enough data';
     }
   }
 
+  // Real score out of the max possible (3 + 2 + 1 = 6), not a fixed guess —
+  // '—' while there isn't enough history to score at all.
+  String get _pcosRiskPercent {
+    if (_pcosRiskData['level'] == 'insufficient_data') return '—';
+    final score = (_pcosRiskData['score'] as num?) ?? 0;
+    return '${(score / 6 * 100).round()}%';
+  }
+
   Color get _pcosRiskColor {
-    switch (_pcosRisk) {
-      case 'High':     return const Color(0xFFE96A8F);
-      case 'Moderate': return const Color(0xFFBC6B9C);
-      case 'Low':      return const Color(0xFF84B2E9);
-      default:         return const Color(0xFF4CAF7D);
+    switch (_pcosRiskData['level']) {
+      case 'high':     return const Color(0xFFE96A8F);
+      case 'moderate': return const Color(0xFFBC6B9C);
+      case 'low':      return const Color(0xFF84B2E9);
+      case 'none':     return const Color(0xFF4CAF7D);
+      default:         return const Color(0xFFAAAAAA);
     }
   }
 
   List<String> get _pcosSymptoms {
-    final symptoms = <String>[];
-    if (_periodDaysCount == 0)
-      symptoms.add('No period logged this month (possible missed/delayed period)');
-    else if (_periodDaysCount < 3)
-      symptoms.add('Very short period logged (${_periodDaysCount} day${_periodDaysCount == 1 ? '' : 's'})');
-    if (_dominantFlow == 'Heavy' || _dominantFlow == 'Super Heavy')
-      symptoms.add('Predominantly $_dominantFlow flow logged');
-    if (_dominantEnergy == 'Exhausted' || _dominantEnergy == 'Tired')
-      symptoms.add('Persistent fatigue/exhaustion logged');
-    return symptoms;
+    final raw = _pcosRiskData['symptoms'] as List<dynamic>? ?? [];
+    return raw.map((s) => s.toString()).toList();
   }
 
-  // ── Next period prediction (simple 28-day cycle) ──────────────────────────
+  // ── Next period prediction — real weighted average + confidence range
+  // from the server, instead of a naive fixed +23-day guess.
   String get _nextPeriodLabel {
-    if (_thisMonthEntries.isEmpty) return 'Not enough data';
-    final sortedDays = _thisMonthEntries.keys.toList()..sort();
-    final lastDay = sortedDays.last;
-    final predicted = lastDay.add(const Duration(days: 23)); // ~28-day cycle
+    final range = _predictions?['next_predicted_range'] as Map<String, dynamic>?;
+    if (range == null || range['earliest'] == null || range['latest'] == null) {
+      return 'Not enough data';
+    }
     const months = ['Jan','Feb','Mar','Apr','May','Jun',
         'Jul','Aug','Sep','Oct','Nov','Dec'];
-    return '${months[predicted.month - 1]} ${predicted.day}';
+    final earliest = DateTime.parse(range['earliest']);
+    final latest = DateTime.parse(range['latest']);
+    if (earliest.month == latest.month) {
+      return '${months[earliest.month - 1]} ${earliest.day}\u2013${latest.day}';
+    }
+    return '${months[earliest.month - 1]} ${earliest.day} \u2013 ${months[latest.month - 1]} ${latest.day}';
+  }
+
+  String get _nextPeriodConfidenceLabel {
+    switch (_predictions?['confidence']) {
+      case 'high':   return 'High confidence';
+      case 'medium': return 'Medium confidence';
+      case 'low':    return 'Low confidence';
+      default:       return 'Not enough data yet';
+    }
   }
 
   // ── Month name helper ─────────────────────────────────────────────────────
@@ -431,9 +472,9 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
                   color: Color(0xFF333333),
                 ),
               ),
-              const Text(
-                'Estimated',
-                style: TextStyle(
+              Text(
+                _nextPeriodConfidenceLabel,
+                style: const TextStyle(
                   fontFamily: 'Mallanna',
                   fontSize: 10,
                   color: Color(0xFFAAAAAA),
@@ -520,6 +561,17 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
                   color: Color(0xFF333333),
                 ),
               ),
+              if (_isLoadingPredictions) ...[
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF84B2E9),
+                  ),
+                ),
+              ],
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(

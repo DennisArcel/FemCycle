@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class DiaryEntryScreen extends StatefulWidget {
   final Map<String, dynamic>? entry;
@@ -14,6 +15,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   final _bodyController = TextEditingController();
   int _selectedMood = -1;
   bool _isEditing = false;
+  bool _isSaving = false;
 
   final List<Map<String, dynamic>> _moods = [
     {'label': '😊 Happy', 'color': const Color(0xFF185FA5), 'bg': const Color(0xFFE4E8FE)},
@@ -57,46 +59,70 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}, ${now.year}';
   }
 
-  String get _timeNow {
-    final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : now.hour == 0 ? 12 : now.hour;
-    final min = now.minute.toString().padLeft(2, '0');
-    final period = now.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$min $period';
+  void _showSnack(String msg, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontFamily: 'Mallanna')),
+        backgroundColor: isError ? const Color(0xFFE96A8F) : const Color(0xFF4CAF7D),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
-  void _handleSave() {
-    if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please add a title to your entry.'),
-          backgroundColor: const Color(0xFFE96A8F),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+  Future<void> _handleSave() async {
+    final title = _titleController.text.trim();
+    final body = _bodyController.text.trim();
+
+    if (title.isEmpty) {
+      _showSnack('Please add a title to your entry.');
       return;
     }
 
-    final mood = _selectedMood >= 0 ? _moods[_selectedMood] : null;
-    final now = DateTime.now();
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final mood = _selectedMood >= 0 ? _moods[_selectedMood]['label'] as String : null;
 
-    Navigator.pop(context, {
-      'day': now.day,
-      'weekday': weekdays[now.weekday - 1],
-      'title': _titleController.text.trim(),
-      'preview': _bodyController.text.trim().length > 80
-          ? '${_bodyController.text.trim().substring(0, 80)}...'
-          : _bodyController.text.trim(),
-      'body': _bodyController.text.trim(),
-      'mood': mood?['label'] ?? '🌸 Calm',
-      'moodColor': mood?['color'] ?? const Color(0xFF185FA5),
-      'moodBg': mood?['bg'] ?? const Color(0xFFE4E8FE),
-      'accentColor': const Color(0xFF84B2E9),
-      'time': _timeNow,
-    });
+    setState(() => _isSaving = true);
+
+    final isUpdate = widget.entry != null && widget.entry!['id'] != null;
+
+    final result = isUpdate
+        ? await ApiService.updateDiaryEntry(
+            id: widget.entry!['id'] as int,
+            title: title,
+            body: body,
+            mood: mood,
+          )
+        : await ApiService.createDiaryEntry(
+            title: title,
+            body: body,
+            mood: mood,
+          );
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (result['success'] == true) {
+      Navigator.pop(context, 'saved');
+    } else {
+      _showSnack(result['message'] ?? 'Could not save your entry. Please try again.');
+    }
+  }
+
+  Future<void> _confirmAndDelete() async {
+    final id = widget.entry?['id'] as int?;
+    if (id == null) return;
+
+    setState(() => _isSaving = true);
+    final result = await ApiService.deleteDiaryEntry(id);
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (result['success'] == true) {
+      Navigator.pop(context, 'deleted');
+    } else {
+      _showSnack(result['message'] ?? 'Could not delete entry. Please try again.');
+    }
   }
 
   void _handleDelete() {
@@ -122,7 +148,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pop(context, 'deleted');
+              _confirmAndDelete();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE96A8F),
@@ -153,7 +179,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Date chip
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
@@ -169,7 +194,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                           const SizedBox(width: 5),
                           Text(
                             widget.entry != null
-                                ? 'Thu, Jan ${widget.entry!['day']}, 2026'
+                                ? '${widget.entry!['weekday'] ?? ''}, ${widget.entry!['month'] ?? ''} ${widget.entry!['day'] ?? ''}'
                                 : _formattedDate,
                             style: const TextStyle(
                               fontFamily: 'Mallanna',
@@ -182,8 +207,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Mood label
                     const Text(
                       'How are you feeling?',
                       style: TextStyle(
@@ -193,8 +216,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Mood chips
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -239,8 +260,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                       }),
                     ),
                     const SizedBox(height: 20),
-
-                    // Title
                     TextField(
                       controller: _titleController,
                       enabled: _isEditing,
@@ -276,8 +295,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Body label
                     const Text(
                       "What's on your mind?",
                       style: TextStyle(
@@ -287,8 +304,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Body
                     TextField(
                       controller: _bodyController,
                       enabled: _isEditing,
@@ -334,7 +349,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: _isSaving ? null : () => Navigator.pop(context),
             child: Container(
               width: 32,
               height: 32,
@@ -357,8 +372,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
             ),
           ),
           const Spacer(),
-          // Edit or Delete button when viewing
-          if (widget.entry != null && !_isEditing) ...[
+          if (widget.entry != null && !_isEditing && !_isSaving) ...[
             GestureDetector(
               onTap: _handleDelete,
               child: Container(
@@ -387,10 +401,9 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               ),
             ),
           ],
-          // Save button when writing
           if (_isEditing)
             GestureDetector(
-              onTap: _handleSave,
+              onTap: _isSaving ? null : _handleSave,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 6),
@@ -398,15 +411,24 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   color: Colors.white.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'Save',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Mallanna',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Save',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Mallanna',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
         ],

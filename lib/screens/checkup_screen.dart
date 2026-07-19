@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODEL
@@ -44,6 +47,32 @@ class Checkup {
         recurringType: recurringType ?? this.recurringType,
         type: type ?? this.type,
       );
+  factory Checkup.fromJson(Map<String, dynamic> json) {
+    return Checkup(
+      id: json['id'] ?? 0,
+      title: json['title'] ?? '',
+      notes: json['notes'] ?? '',
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+      status: json['status'] ?? 'upcoming',
+      isRecurring: json['is_recurring'] is int
+          ? json['is_recurring'] == 1
+          : (json['is_recurring'] ?? false),
+      recurringType: json['recurring_type'] ?? 'none',
+      type: json['type'] ?? 'general',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'date': date.toIso8601String().split('T')[0],
+      'notes': notes,
+      'status': status,
+      'is_recurring': isRecurring ? 1 : 0,
+      'recurring_type': recurringType,
+      'type': type,
+    };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,39 +200,101 @@ class _CheckupScreenState extends State<CheckupScreen> {
   final DateTime _today = DateTime.now();
   late DateTime _currentMonth;
   int _selectedFilter = 0; // 0=All 1=Upcoming 2=Overdue 3=Done
-  int _nextId = 10;
 
-  final List<Checkup> _checkups = [
-    Checkup(
-      id: 1, title: 'OB-GYN Consultation', notes: 'Dr. Umipig · 10:00 AM',
-      date: DateTime(2026, 1, 20), status: 'upcoming',
-      isRecurring: true, recurringType: 'yearly', type: 'general',
-    ),
-    Checkup(
-      id: 2, title: 'Self Breast Exam', notes: 'Monthly reminder',
-      date: DateTime(2026, 1, 28), status: 'upcoming',
-      isRecurring: true, recurringType: 'monthly', type: 'general',
-    ),
-    Checkup(
-      id: 3, title: 'Blood Test', notes: 'Iron & hormone panel',
-      date: DateTime(2026, 1, 10), status: 'overdue',
-      isRecurring: false, recurringType: 'none', type: 'general',
-    ),
-    Checkup(
-      id: 4, title: 'Pap Smear', notes: 'Completed successfully',
-      date: DateTime(2026, 1, 5), status: 'done',
-      isRecurring: false, recurringType: 'none', type: 'general',
-    ),
-    Checkup(
-      id: 5, title: 'Hormone Panel', notes: 'Estrogen & progesterone',
-      date: DateTime(2026, 2, 14), status: 'upcoming',
-      isRecurring: false, recurringType: 'none', type: 'general',
-    ),
+  List<Checkup> _checkups = [
   ];
+
+  bool _isLoading = true;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  static const String apiUrl = 'http://127.0.0.1:8000/api/checkups'; // Laravel IP
+
+  Future<Map<String, String>> _getHeaders() async {
+    String? token = await _storage.read(key: 'auth_token');
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer ${token ?? ''}',
+    };
+  }
+
+  Future<void> _fetchCheckups() async {
+    setState(() => _isLoading = true);
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(Uri.parse(apiUrl), headers: headers);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _checkups = data.map((json) => Checkup.fromJson(json)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error connecting to FemCycle server')),
+      );
+    }
+  }
+
+  Future<void> _apiCreateCheckup(Checkup newCheckup) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(Uri.parse(apiUrl),
+          headers: headers, body: json.encode(newCheckup.toJson()));
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        _fetchCheckups();
+      } else {
+        _showSnack('Failed to save check-up (${response.statusCode})',
+            const Color(0xFFE24B4A));
+      }
+    } catch (_) {
+      _showSnack('Error connecting to FemCycle server',
+          const Color(0xFFE24B4A));
+    }
+  }
+
+  Future<void> _apiUpdateCheckup(Checkup updatedCheckup) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.put(
+          Uri.parse('$apiUrl/${updatedCheckup.id}'),
+          headers: headers, body: json.encode(updatedCheckup.toJson()));
+      if (response.statusCode == 200) {
+        _fetchCheckups();
+      } else {
+        _showSnack('Failed to update check-up (${response.statusCode})',
+            const Color(0xFFE24B4A));
+        _fetchCheckups(); // resync in case local state drifted
+      }
+    } catch (_) {
+      _showSnack('Error connecting to FemCycle server',
+          const Color(0xFFE24B4A));
+    }
+  }
+
+  Future<void> _apiDeleteCheckup(int id) async {
+    try {
+      final headers = await _getHeaders();
+      final response =
+          await http.delete(Uri.parse('$apiUrl/$id'), headers: headers);
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _fetchCheckups();
+      } else {
+        _showSnack('Failed to delete check-up (${response.statusCode})',
+            const Color(0xFFE24B4A));
+        _fetchCheckups();
+      }
+    } catch (_) {
+      _showSnack('Error connecting to FemCycle server',
+          const Color(0xFFE24B4A));
+    }
+  }
 
   @override
   void initState() {
-    super.initState();
+  super.initState();
+  _fetchCheckups();
     _currentMonth = DateTime(_today.year, _today.month);
     _autoMarkOverdue();
   }
@@ -311,16 +402,19 @@ class _CheckupScreenState extends State<CheckupScreen> {
   void _markDone(Checkup c) {
     setState(() => c.status = 'done');
     _showSnack('Marked as done ✓', const Color(0xFF1D9E75));
+    _apiUpdateCheckup(c);
   }
 
   void _markUpcoming(Checkup c) {
     setState(() => c.status = 'upcoming');
     _showSnack('Restored to upcoming', const Color(0xFF84B2E9));
+    _apiUpdateCheckup(c);
   }
 
   void _delete(Checkup c) {
     setState(() => _checkups.remove(c));
     _showSnack('Deleted "${c.title}"', const Color(0xFFE24B4A));
+    _apiDeleteCheckup(c.id);
   }
 
   void _showSnack(String msg, Color color) {
@@ -1290,40 +1384,36 @@ class _CheckupScreenState extends State<CheckupScreen> {
                               const Color(0xFFE24B4A));
                           return;
                         }
-                        setState(() {
-                          if (isEdit) {
-                            final idx =
-                                _checkups.indexWhere((c) => c.id == existing.id);
-                            if (idx != -1) {
-                              _checkups[idx] = existing.copyWith(
-                                title: title,
-                                notes: notesCtrl.text.trim().isEmpty
-                                    ? 'Reminder'
-                                    : notesCtrl.text.trim(),
-                                date: selDate,
-                                isRecurring: recurring,
-                                recurringType:
-                                    recurring ? recurType : 'none',
-                              );
-                            }
-                          } else {
-                            _checkups.add(Checkup(
-                              id: _nextId++,
-                              title: title,
-                              notes: notesCtrl.text.trim().isEmpty
-                                  ? 'Reminder'
-                                  : notesCtrl.text.trim(),
-                              date: selDate,
-                              status: selDate.isBefore(DateTime(
-                                      _today.year, _today.month, _today.day))
-                                  ? 'overdue'
-                                  : 'upcoming',
-                              isRecurring: recurring,
-                              recurringType:
-                                  recurring ? recurType : 'none',
-                            ));
-                          }
-                        });
+                        if (isEdit) {
+                          final updated = existing.copyWith(
+                            title: title,
+                            notes: notesCtrl.text.trim().isEmpty
+                                ? 'Reminder'
+                                : notesCtrl.text.trim(),
+                            date: selDate,
+                            isRecurring: recurring,
+                            recurringType:
+                                recurring ? recurType : 'none',
+                          );
+                          _apiUpdateCheckup(updated);
+                        } else {
+                          final newCheckup = Checkup(
+                            id: 0, // server assigns the real id
+                            title: title,
+                            notes: notesCtrl.text.trim().isEmpty
+                                ? 'Reminder'
+                                : notesCtrl.text.trim(),
+                            date: selDate,
+                            status: selDate.isBefore(DateTime(
+                                    _today.year, _today.month, _today.day))
+                                ? 'overdue'
+                                : 'upcoming',
+                            isRecurring: recurring,
+                            recurringType:
+                                recurring ? recurType : 'none',
+                          );
+                          _apiCreateCheckup(newCheckup);
+                        }
                         Navigator.pop(ctx);
                         _showSnack(
                           isEdit
@@ -1635,23 +1725,22 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     onPressed: () {
                       final title = titleCtrl.text.trim();
                       if (title.isEmpty) return;
-                      setState(() {
-                        _checkups.add(Checkup(
-                          id: _nextId++,
-                          title: title,
-                          notes: notesCtrl.text.trim().isEmpty
-                              ? 'Reminder'
-                              : notesCtrl.text.trim(),
-                          date: selDate,
-                          status: selDate.isBefore(DateTime(
-                                  _today.year, _today.month, _today.day))
-                              ? 'overdue'
-                              : 'upcoming',
-                          isRecurring: recurring,
-                          recurringType:
-                              recurring ? recurType : 'none',
-                        ));
-                      });
+                      final newCheckup = Checkup(
+                        id: 0, // server assigns the real id
+                        title: title,
+                        notes: notesCtrl.text.trim().isEmpty
+                            ? 'Reminder'
+                            : notesCtrl.text.trim(),
+                        date: selDate,
+                        status: selDate.isBefore(DateTime(
+                                _today.year, _today.month, _today.day))
+                            ? 'overdue'
+                            : 'upcoming',
+                        isRecurring: recurring,
+                        recurringType:
+                            recurring ? recurType : 'none',
+                      );
+                      _apiCreateCheckup(newCheckup);
                       Navigator.pop(ctx);
                       _showSnack('Check-up added ✓',
                           const Color(0xFF84B2E9));

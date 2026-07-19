@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'diary_entry_screen.dart';
 import '../theme/theme_provider.dart';
+import '../services/api_service.dart';
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -10,67 +11,91 @@ class DiaryScreen extends StatefulWidget {
 }
 
 class _DiaryScreenState extends State<DiaryScreen> {
-  // Sample diary entries
-  final List<Map<String, dynamic>> _entries = [
-    {
-      'id': 1,
-      'day': 16,
-      'weekday': 'Thu',
-      'month': 'January 2026',
-      'title': 'Feeling overwhelmed today',
-      'preview': 'Had really bad cramps in the morning. Couldn\'t focus on anything. Took some pain relief and rested...',
-      'mood': '😔 Sad',
-      'moodColor': Color(0xFFBC6B9C),
-      'moodBg': Color(0xFFF5EAF7),
-      'accentColor': Color(0xFFE96A8F),
-      'time': '9:32 AM',
-      'body': 'Had really bad cramps in the morning. Couldn\'t focus on anything. Took some pain relief and rested for most of the day. Feeling a bit better now but still drained.',
-    },
-    {
-      'id': 2,
-      'day': 14,
-      'weekday': 'Tue',
-      'month': 'January 2026',
-      'title': 'Good energy day!',
-      'preview': 'Woke up feeling great. Went for a walk and felt so alive. My cycle seems to be ending soon...',
-      'mood': '😊 Happy',
-      'moodColor': Color(0xFF185FA5),
-      'moodBg': Color(0xFFE4E8FE),
-      'accentColor': Color(0xFF84B2E9),
-      'time': '7:15 AM',
-      'body': 'Woke up feeling great. Went for a walk and felt so alive. My cycle seems to be ending soon and I can already feel my energy coming back.',
-    },
-    {
-      'id': 3,
-      'day': 12,
-      'weekday': 'Sun',
-      'month': 'January 2026',
-      'title': 'Mood swings again',
-      'preview': 'Not sure why I felt so irritable today. Everything bothered me. Need to track this pattern...',
-      'mood': '😤 Irritable',
-      'moodColor': Color(0xFFBC6B9C),
-      'moodBg': Color(0xFFF5EAF7),
-      'accentColor': Color(0xFFBC6B9C),
-      'time': '10:00 PM',
-      'body': 'Not sure why I felt so irritable today. Everything bothered me. Need to track this pattern more carefully.',
-    },
-    {
-      'id': 4,
-      'day': 28,
-      'weekday': 'Sun',
-      'month': 'December 2025',
-      'title': 'End of year reflection',
-      'preview': 'Looking back at this year\'s cycle patterns. I\'ve learned so much about my body...',
-      'mood': '🌸 Calm',
-      'moodColor': Color(0xFF185FA5),
-      'moodBg': Color(0xFFE4E8FE),
-      'accentColor': Color(0xFF84B2E9),
-      'time': '8:00 PM',
-      'body': 'Looking back at this year\'s cycle patterns. I\'ve learned so much about my body and how to take care of myself.',
-    },
+  List<Map<String, dynamic>> _entries = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  static const List<String> _weekdays = [
+    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
+  ];
+  static const List<String> _months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Group entries by month
+  // Mood label -> color mapping (kept client-side; DB only stores the label)
+  static const Map<String, Map<String, Color>> _moodStyles = {
+    '😊 Happy': {'color': Color(0xFF185FA5), 'bg': Color(0xFFE4E8FE)},
+    '😔 Sad': {'color': Color(0xFFBC6B9C), 'bg': Color(0xFFF5EAF7)},
+    '😤 Irritable': {'color': Color(0xFFBC6B9C), 'bg': Color(0xFFF5EAF7)},
+    '🌸 Calm': {'color': Color(0xFF185FA5), 'bg': Color(0xFFE4E8FE)},
+    '😢 Cry': {'color': Color(0xFFE96A8F), 'bg': Color(0xFFFBEAF0)},
+    '⚡ Energetic': {'color': Color(0xFF84B2E9), 'bg': Color(0xFFE4E8FE)},
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries();
+  }
+
+  Future<void> _loadEntries() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ApiService.getDiaryEntries();
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final rawEntries = result['data'] as List<dynamic>;
+      setState(() {
+        _entries = rawEntries
+            .map((e) => _mapApiEntry(e as Map<String, dynamic>))
+            .toList();
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = result['message'] ?? 'Could not load your diary.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Converts a raw Laravel diary_entries row into the shape the UI expects
+  Map<String, dynamic> _mapApiEntry(Map<String, dynamic> raw) {
+    final createdAt = DateTime.parse(raw['created_at']);
+    final moodLabel = raw['mood'] as String? ?? '🌸 Calm';
+    final style = _moodStyles[moodLabel] ??
+        {'color': const Color(0xFF185FA5), 'bg': const Color(0xFFE4E8FE)};
+    final body = raw['body'] as String? ?? '';
+
+    return {
+      'id': raw['id'],
+      'day': createdAt.day,
+      'weekday': _weekdays[createdAt.weekday - 1],
+      'month': '${_months[createdAt.month - 1]} ${createdAt.year}',
+      'title': raw['title'] as String? ?? '',
+      'preview': body.length > 80 ? '${body.substring(0, 80)}...' : body,
+      'body': body,
+      'mood': moodLabel,
+      'moodColor': style['color'],
+      'moodBg': style['bg'],
+      'accentColor': const Color(0xFF84B2E9),
+      'time': _formatTime(createdAt),
+    };
+  }
+
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final min = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$min $period';
+  }
+
   Map<String, List<Map<String, dynamic>>> get _grouped {
     final Map<String, List<Map<String, dynamic>>> map = {};
     for (final e in _entries) {
@@ -85,24 +110,21 @@ class _DiaryScreenState extends State<DiaryScreen> {
       context,
       MaterialPageRoute(builder: (_) => const DiaryEntryScreen()),
     );
-    if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        _entries.insert(0, {
-          ...result,
-          'id': _entries.length + 1,
-          'month': 'January 2026',
-        });
-      });
+    if (result != null) {
+      _loadEntries();
     }
   }
 
-  void _openEntry(Map<String, dynamic> entry) {
-    Navigator.push(
+  void _openEntry(Map<String, dynamic> entry) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DiaryEntryScreen(entry: entry),
       ),
     );
+    if (result != null) {
+      _loadEntries();
+    }
   }
 
   @override
@@ -116,13 +138,20 @@ class _DiaryScreenState extends State<DiaryScreen> {
               children: [
                 _buildTopBar(),
                 Expanded(
-                  child: _entries.isEmpty
-                      ? _buildEmptyState()
-                      : _buildEntryList(),
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF84B2E9),
+                          ),
+                        )
+                      : _errorMessage != null
+                          ? _buildErrorState()
+                          : _entries.isEmpty
+                              ? _buildEmptyState()
+                              : _buildEntryList(),
                 ),
               ],
             ),
-            // Floating Action Button
             Positioned(
               bottom: 24,
               right: 20,
@@ -178,7 +207,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-
         ],
       ),
     );
@@ -188,33 +216,37 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final grouped = _grouped;
     final months = grouped.keys.toList();
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
-      itemCount: months.length,
-      itemBuilder: (context, i) {
-        final month = months[i];
-        final entries = grouped[month]!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10, top: 4),
-              child: Text(
-                month.toUpperCase(),
-                style: const TextStyle(
-                  fontFamily: 'Mallanna',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF888888),
-                  letterSpacing: 1.2,
+    return RefreshIndicator(
+      color: const Color(0xFF84B2E9),
+      onRefresh: _loadEntries,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
+        itemCount: months.length,
+        itemBuilder: (context, i) {
+          final month = months[i];
+          final entries = grouped[month]!;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10, top: 4),
+                child: Text(
+                  month.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'Mallanna',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF888888),
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ),
-            ),
-            ...entries.map((e) => _buildEntryCard(e)),
-            const SizedBox(height: 6),
-          ],
-        );
-      },
+              ...entries.map((e) => _buildEntryCard(e)),
+              const SizedBox(height: 6),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -236,7 +268,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date
               Column(
                 children: [
                   Text(
@@ -260,7 +291,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 ],
               ),
               const SizedBox(width: 12),
-              // Content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,13 +358,13 @@ class _DiaryScreenState extends State<DiaryScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('📔', style: TextStyle(fontSize: 50)),
-          SizedBox(height: 16),
-          Text(
+          const Text('📔', style: TextStyle(fontSize: 50)),
+          const SizedBox(height: 16),
+          const Text(
             'No entries yet',
             style: TextStyle(
               fontFamily: 'Mallanna',
@@ -343,8 +373,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
               color: Color(0xFF888888),
             ),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 8),
+          const Text(
             'Tap + to write your first diary entry',
             style: TextStyle(
               fontFamily: 'Mallanna',
@@ -353,6 +383,45 @@ class _DiaryScreenState extends State<DiaryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off_outlined,
+                size: 44, color: Color(0xFFAAAAAA)),
+            const SizedBox(height: 14),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Mallanna',
+                fontSize: 13,
+                color: Color(0xFF888888),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadEntries,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF84B2E9),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
+              ),
+              child: const Text('Try Again',
+                  style: TextStyle(fontFamily: 'Mallanna')),
+            ),
+          ],
+        ),
       ),
     );
   }

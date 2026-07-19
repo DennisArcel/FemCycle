@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'educational_screen.dart';
 import 'lifestyle_screen.dart';
 import 'profile_screen.dart';
@@ -6,6 +9,7 @@ import 'diary_screen.dart';
 import 'mood_monitoring_screen.dart';
 import 'checkup_screen.dart';
 import '../theme/theme_provider.dart';
+import '../services/api_service.dart'; // Imported your API service
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,10 +20,11 @@ class HomeScreen extends StatefulWidget {
 
 // Holds one logged cycle entry per date
 class _CycleEntry {
+  int? id; // server-assigned id — null until saved once
   String flow;
   String energy;
   String mood;
-  _CycleEntry({required this.flow, required this.energy, this.mood = 'Happy'});
+  _CycleEntry({this.id, required this.flow, required this.energy, this.mood = 'Happy'});
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -28,18 +33,165 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedMood = -1;
   int _selectedEnergy = -1;
 
+  // ── PROFILE STATE VARIABLES ──
+  String _firstName = 'User';
+  bool _isLoadingProfile = true;
+
   final DateTime _today = DateTime.now();
   DateTime _currentMonth = DateTime.now();
 
-  // key = DateTime(year, month, day)  value = entry
-  final Map<DateTime, _CycleEntry> _cycleEntries = {
-    DateTime(DateTime.now().year, DateTime.now().month, 1):
-        _CycleEntry(flow: 'Light', energy: 'Energetic'),
-    DateTime(DateTime.now().year, DateTime.now().month, 2):
-        _CycleEntry(flow: 'Medium', energy: 'Tired'),
-    DateTime(DateTime.now().year, DateTime.now().month, 3):
-        _CycleEntry(flow: 'Heavy', energy: 'Exhausted'),
-  };
+  // key = DateTime(year, month, day)  value = entry — populated from the API
+  final Map<DateTime, _CycleEntry> _cycleEntries = {};
+  bool _isLoadingCycles = true;
+
+  // ── Prediction state — populated from GET /api/period-logs/predictions ────
+  double? _avgCycleLength; // falls back to _assumedCycleLength until loaded
+  String _confidence = 'insufficient_data';
+  Map<String, dynamic>? _nextPredictedRange; // {earliest, latest}
+  bool _isIrregular = false;
+  Map<String, dynamic>? _pcosRisk;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+    _fetchPeriodLogs();
+    _fetchPredictions();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final result = await ApiService.getProfile();
+      if (mounted && result['success'] == true) {
+        final user = result['user'];
+        setState(() {
+          _firstName = user['first_name'] ?? 'User';
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading home profile: $e');
+    }
+  }
+
+  // ── Period-logs API ────────────────────────────────────────────────────────
+  static const String _apiBase = 'http://127.0.0.1:8000/api/period-logs'; // Laravel IP
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  Future<Map<String, String>> _getHeaders() async {
+    String? token = await _storage.read(key: 'auth_token');
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer ${token ?? ''}',
+    };
+  }
+
+  Future<void> _fetchPeriodLogs() async {
+    setState(() => _isLoadingCycles = true);
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(Uri.parse(_apiBase), headers: headers);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final Map<DateTime, _CycleEntry> loaded = {};
+        for (final row in data) {
+          // 'date' comes back as a full ISO string (e.g. 2026-07-11T00:00:00.000000Z)
+          final d = DateTime.parse(row['date']);
+          final key = DateTime(d.year, d.month, d.day);
+          loaded[key] = _CycleEntry(
+            id: row['id'],
+            flow: row['flow'] ?? 'Moderate',
+            energy: row['energy'] ?? 'Energetic',
+            mood: row['mood'] ?? 'Happy',
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          _cycleEntries
+            ..clear()
+            ..addAll(loaded);
+          _isLoadingCycles = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() => _isLoadingCycles = false);
+      }
+    } catch (e) {
+      debugPrint('Error fetching period logs: $e');
+      if (!mounted) return;
+      setState(() => _isLoadingCycles = false);
+    }
+  }
+
+  Future<void> _fetchPredictions() async {
+    try {
+      final headers = await _getHeaders();
+      final response =
+          await http.get(Uri.parse('$_apiBase/predictions'), headers: headers);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (!mounted) return;
+        setState(() {
+          _avgCycleLength = (data['average_cycle_length'] as num?)?.toDouble();
+          _confidence = data['confidence'] ?? 'insufficient_data';
+          _nextPredictedRange = data['next_predicted_range'];
+          _isIrregular = data['is_irregular'] ?? false;
+          _pcosRisk = data['pcos_risk'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching predictions: $e');
+    }
+  }
+
+  // Creates a new log, or updates one if this date already has a server id.
+  Future<bool> _savePeriodLog(DateTime day, String flow, String energy,
+      {String mood = 'Happy'}) async {
+    try {
+      final headers = await _getHeaders();
+      final existingId = _cycleEntries[DateTime(day.year, day.month, day.day)]?.id;
+      final body = json.encode({
+        'date': DateTime(day.year, day.month, day.day).toIso8601String().split('T')[0],
+        'flow': flow,
+        'energy': energy,
+        'mood': mood,
+      });
+
+      final response = existingId != null
+          ? await http.put(Uri.parse('$_apiBase/$existingId'), headers: headers, body: body)
+          : await http.post(Uri.parse(_apiBase), headers: headers, body: body);
+
+      final ok = response.statusCode == 200 || response.statusCode == 201;
+      if (ok) {
+        await _fetchPeriodLogs();
+        await _fetchPredictions(); // stats shift with every add/edit
+      }
+      return ok;
+    } catch (e) {
+      debugPrint('Error saving period log: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _deletePeriodLog(DateTime day) async {
+    try {
+      final id = _cycleEntries[DateTime(day.year, day.month, day.day)]?.id;
+      if (id == null) return false;
+      final headers = await _getHeaders();
+      final response =
+          await http.delete(Uri.parse('$_apiBase/$id'), headers: headers);
+      final ok = response.statusCode == 200 || response.statusCode == 204;
+      if (ok) {
+        await _fetchPeriodLogs();
+        await _fetchPredictions();
+      }
+      return ok;
+    } catch (e) {
+      debugPrint('Error deleting period log: $e');
+      return false;
+    }
+  }
 
   // Derived — days with logged entries this month
   List<int> get _periodDays => _cycleEntries.entries
@@ -49,8 +201,22 @@ class _HomeScreenState extends State<HomeScreen> {
       .map((e) => e.key.day)
       .toList();
 
-  // Sample predicted days
-  final List<int> _predictedDays = [];
+  // Predicted days this month, derived from the API's next_predicted_range
+  List<int> get _predictedDays {
+    final range = _nextPredictedRange;
+    if (range == null || range['earliest'] == null || range['latest'] == null) {
+      return [];
+    }
+    final earliest = DateTime.parse(range['earliest']);
+    final latest = DateTime.parse(range['latest']);
+    final days = <int>[];
+    for (var d = earliest; !d.isAfter(latest); d = d.add(const Duration(days: 1))) {
+      if (d.year == _currentMonth.year && d.month == _currentMonth.month) {
+        days.add(d.day);
+      }
+    }
+    return days;
+  }
 
   void _previousMonth() {
     setState(() {
@@ -65,10 +231,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Phase ring calculations ──────────────────────────────────────────────
-  // Finds the most recent logged period start date on/before today, then
-  // derives "day X of cycle" and a rough phase label from it.
+  // 28 is only a placeholder until real history is loaded — once
+  // _avgCycleLength comes back from the predictions endpoint, that real,
+  // personalized number takes over everywhere below.
   static const int _assumedCycleLength = 28;
   static const int _assumedPeriodLength = 5;
+
+  double get _effectiveCycleLength => _avgCycleLength ?? _assumedCycleLength.toDouble();
 
   DateTime? get _mostRecentPeriodStart {
     final loggedDates = _cycleEntries.keys
@@ -94,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int get _cycleDay {
     final start = _mostRecentPeriodStart;
     if (start == null) return 1;
-    final diff = _today.difference(start).inDays % _assumedCycleLength;
+    final diff = _today.difference(start).inDays % _effectiveCycleLength.round();
     return diff + 1;
   }
 
@@ -122,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPhaseRingCard() {
     final day = _cycleDay;
     final phase = _currentPhaseLabel;
-    final progress = (day / _assumedCycleLength).clamp(0.0, 1.0);
+    final progress = (day / _effectiveCycleLength).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -282,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               alignment: Alignment.center,
               child: Text(
-                'K',
+                _firstName.isNotEmpty ? _firstName[0].toUpperCase() : 'U',
                 style: TextStyle(
                   color: context.cardColor,
                   fontFamily: 'Mallanna',
@@ -298,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, Kaicee!',
+                'Hi, $_firstName!',
                 style: TextStyle(
                   color: context.cardColor,
                   fontFamily: 'Mallanna',
@@ -534,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               _periodBtn(0, 'Light', 0.35),
-              _periodBtn(1, 'Medium', 0.60),
+              _periodBtn(1, 'Moderate', 0.60),
               _periodBtn(2, 'Heavy', 0.85),
               _periodBtn(3, 'Super\nheavy', 1.0),
             ],
@@ -617,10 +786,10 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? Color(0xFFE4E8FE) : context.cardColor,
+            color: isSelected ? const Color(0xFFE4E8FE) : context.cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? Color(0xFF84B2E9) : context.dividerColor,
+              color: isSelected ? const Color(0xFF84B2E9) : context.dividerColor,
               width: isSelected ? 1.5 : 0.5,
             ),
           ),
@@ -751,7 +920,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Bottom Nav ────────────────────────────────────────────────────────────
-  // Left: 0=Cycle, 1=Diary, 2=Mood  |  (+)  |  Right: 3=Checkup, 4=Learn, 5=Lifestyle
   Widget _buildBottomNav() {
     return Container(
       color: context.cardColor,
@@ -762,7 +930,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _navItem(0, Icons.calendar_month_outlined, 'Cycle'),
           _navItem(1, Icons.book_outlined, 'Diary'),
           _navItem(2, Icons.sentiment_satisfied_outlined, 'Mood'),
-          // ── Centre + button ──
           GestureDetector(
             onTap: _showAddPeriodSheet,
             child: Container(
@@ -804,7 +971,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 CycleEntry(
                   flow: entry.flow,
                   energy: entry.energy,
-                  mood: 'Happy', // TODO: pull from mood log when integrated
+                  mood: 'Happy',
                 ),
               )),
             )));
@@ -884,7 +1051,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ── Add Cycle — called from + button (sheet shows calendar to pick a day) ─
+  // ── Add Cycle — called from + button ──────────────────────────────────────
   void _showAddPeriodSheet() {
     DateTime sheetMonth = DateTime(_today.year, _today.month);
     DateTime? pickedDay;
@@ -931,17 +1098,18 @@ class _HomeScreenState extends State<HomeScreen> {
             onEnergyTap: (e) => setSheet(() => selectedEnergy = e),
             saveLabel: 'Save Cycle',
             canSave: pickedDay != null,
-            onSave: () {
+            onSave: () async {
               if (pickedDay == null) return;
-              // TODO: Connect to Laravel API
-              setState(() {
-                _cycleEntries[pickedDay!] =
-                    _CycleEntry(flow: selectedFlow, energy: selectedEnergy);
-              });
+              final saved = await _savePeriodLog(
+                  pickedDay!, selectedFlow, selectedEnergy);
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Text('Cycle entry saved!'),
-                backgroundColor: const Color(0xFFE96A8F),
+                content: Text(saved
+                    ? 'Cycle entry saved!'
+                    : 'Could not save — check your connection.'),
+                backgroundColor: saved
+                    ? const Color(0xFFE96A8F)
+                    : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -996,16 +1164,16 @@ class _HomeScreenState extends State<HomeScreen> {
             onEnergyTap: (e) => setSheet(() => selectedEnergy = e),
             saveLabel: 'Save Cycle',
             canSave: true,
-            onSave: () {
-              // TODO: Connect to Laravel API
-              setState(() {
-                _cycleEntries[day] =
-                    _CycleEntry(flow: selectedFlow, energy: selectedEnergy);
-              });
+            onSave: () async {
+              final saved = await _savePeriodLog(day, selectedFlow, selectedEnergy);
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Text('Cycle entry saved!'),
-                backgroundColor: const Color(0xFFE96A8F),
+                content: Text(saved
+                    ? 'Cycle entry saved!'
+                    : 'Could not save — check your connection.'),
+                backgroundColor: saved
+                    ? const Color(0xFFE96A8F)
+                    : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1061,16 +1229,16 @@ class _HomeScreenState extends State<HomeScreen> {
             onEnergyTap: (e) => setSheet(() => selectedEnergy = e),
             saveLabel: 'Update Cycle',
             canSave: true,
-            onSave: () {
-              // TODO: Connect to Laravel API — update
-              setState(() {
-                _cycleEntries[day] =
-                    _CycleEntry(flow: selectedFlow, energy: selectedEnergy);
-              });
+            onSave: () async {
+              final saved = await _savePeriodLog(day, selectedFlow, selectedEnergy);
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Text('Cycle entry updated!'),
-                backgroundColor: const Color(0xFF84B2E9),
+                content: Text(saved
+                    ? 'Cycle entry updated!'
+                    : 'Could not update — check your connection.'),
+                backgroundColor: saved
+                    ? const Color(0xFF84B2E9)
+                    : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1113,13 +1281,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontFamily: 'Mallanna', color: Color(0xFF888888))),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Connect to Laravel API — delete
-              setState(() => _cycleEntries.remove(day));
+            onPressed: () async {
+              final deleted = await _deletePeriodLog(day);
               Navigator.pop(dCtx);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Text('Cycle entry deleted.'),
-                backgroundColor: const Color(0xFFE96A8F),
+                content: Text(deleted
+                    ? 'Cycle entry deleted.'
+                    : 'Could not delete — check your connection.'),
+                backgroundColor: deleted
+                    ? const Color(0xFFE96A8F)
+                    : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1180,7 +1351,6 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 36, height: 4,
@@ -1192,7 +1362,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Title row
             Row(
               children: [
                 Container(
@@ -1243,7 +1412,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Fixed day pill OR calendar
             if (fixedDay && fixedDayLabel != null) ...[
               Container(
                 width: double.infinity,
@@ -1271,7 +1439,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ] else ...[
-              // Summary pill
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1298,7 +1465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 6),
                     Text(
                       pickedDay != null
-                          ? '${monthNames[pickedDay.month - 1]} ${pickedDay.day}  •  tap again to change'
+                          ? '${monthNames[pickedDay!.month - 1]} ${pickedDay!.day}  •  tap again to change'
                           : 'Tap a day to select',
                       style: TextStyle(
                         fontFamily: 'Mallanna',
@@ -1314,7 +1481,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Calendar
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1392,9 +1558,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         final d = DateTime(
                             sheetMonth.year, sheetMonth.month, day);
                         final isPicked = pickedDay != null &&
-                            d.year == pickedDay.year &&
-                            d.month == pickedDay.month &&
-                            d.day == pickedDay.day;
+                            d.year == pickedDay!.year &&
+                            d.month == pickedDay!.month &&
+                            d.day == pickedDay!.day;
                         final isToday = d.year == _today.year &&
                             d.month == _today.month &&
                             d.day == _today.day;
@@ -1442,7 +1608,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
             const SizedBox(height: 16),
 
-            // Flow intensity
             _sheetSectionLabel('Period Flow'),
             const SizedBox(height: 8),
             Row(
@@ -1488,7 +1653,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Energy level
             _sheetSectionLabel('Energy Level'),
             const SizedBox(height: 8),
             Row(
@@ -1534,7 +1698,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Save button
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -1574,12 +1737,39 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   // ── Save Handler ──────────────────────────────────────────────────────────
-  void _handleSave() {
-    // TODO: Connect to Laravel API to save cycle log
+  // Maps the index-based selections from the Period/Mood/Energy panel to the
+  // same string values used everywhere else in the app, and actually saves
+  // them for today — this used to just show a toast and save nothing at all.
+  static const List<String> _logFlowOptions = ['Light', 'Moderate', 'Heavy', 'Super Heavy'];
+  static const List<String> _logMoodOptions = ['Happy', 'Depressed', 'Sad', 'Cry'];
+  static const List<String> _logEnergyOptions = ['Exhausted', 'Tired', 'Energetic', 'Fully Energetic'];
+
+  void _handleSave() async {
+    if (_selectedEnergy == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Pick an energy level first.'),
+        backgroundColor: const Color(0xFFE24B4A),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+      return;
+    }
+
+    final flow = _logFlowOptions[_selectedPeriod];
+    final energy = _logEnergyOptions[_selectedEnergy];
+    final mood = _selectedMood == -1 ? 'Happy' : _logMoodOptions[_selectedMood];
+
+    final saved = await _savePeriodLog(_today, flow, energy, mood: mood);
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Cycle log saved!'),
-        backgroundColor: const Color(0xFF84B2E9),
+        content: Text(saved
+            ? 'Cycle log saved!'
+            : 'Could not save — check your connection.'),
+        backgroundColor: saved
+            ? const Color(0xFF84B2E9)
+            : const Color(0xFFE24B4A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -1597,10 +1787,8 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ── Phase Ring Painter ────────────────────────────────────────────────────────
-// Draws the cycle progress ring: blue base sweep, pink highlight marking
-// roughly the fertile window, light track underneath.
 class _PhaseRingPainter extends CustomPainter {
-  final double progress; // 0.0 to 1.0 — how far through the cycle
+  final double progress;
 
   _PhaseRingPainter({required this.progress});
 
@@ -1610,7 +1798,6 @@ class _PhaseRingPainter extends CustomPainter {
     final radius = (size.width / 2) - 10;
     const strokeWidth = 13.0;
 
-    // Track (background ring)
     final trackPaint = Paint()
       ..color = const Color(0xFFE4E8FE)
       ..style = PaintingStyle.stroke
@@ -1618,7 +1805,6 @@ class _PhaseRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, trackPaint);
 
-    // Blue progress sweep (overall cycle progress)
     final bluePaint = Paint()
       ..color = const Color(0xFF84B2E9)
       ..style = PaintingStyle.stroke
@@ -1628,13 +1814,12 @@ class _PhaseRingPainter extends CustomPainter {
     final sweepAngle = 2 * 3.14159265 * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -3.14159265 / 2, // start at top
+      -3.14159265 / 2,
       sweepAngle,
       false,
       bluePaint,
     );
 
-    // Pink highlight marking the fertile/ovulation window (~day 12–16 of 28)
     final pinkPaint = Paint()
       ..color = const Color(0xFFE96A8F)
       ..style = PaintingStyle.stroke
@@ -1681,16 +1866,13 @@ class _FacePainter extends CustomPainter {
     final cy = size.height / 2;
     final r = size.width / 2 - 1;
 
-    // Circle
     canvas.drawCircle(Offset(cx, cy), r, paint);
 
-    // Eyes
     final eyePaint = Paint()
       ..color = const Color(0xFFBC6B9C)
       ..style = PaintingStyle.fill;
 
     if (mouth == 'sad') {
-      // X eyes for sad/cry
       final xPaint = Paint()
         ..color = const Color(0xFFBC6B9C)
         ..strokeWidth = 1.5
@@ -1708,7 +1890,6 @@ class _FacePainter extends CustomPainter {
       canvas.drawCircle(Offset(cx + 4.5, cy - 3), 1.5, eyePaint);
     }
 
-    // Mouth
     final mouthPath = Path();
     if (mouth == 'happy') {
       mouthPath.moveTo(cx - 5, cy + 2);
@@ -1722,7 +1903,6 @@ class _FacePainter extends CustomPainter {
     }
     canvas.drawPath(mouthPath, paint);
 
-    // Tears
     if (tears) {
       final tearPaint = Paint()
         ..color = const Color(0xFF84B2E9)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_provider.dart';
+import '../services/api_service.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -15,6 +16,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _showCurrent = false;
   bool _showNew = false;
   bool _showConfirm = false;
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -24,30 +26,48 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
-  void _handleUpdate() {
+  Future<void> _handleUpdate() async {
     if (_currentController.text.isEmpty ||
         _newController.text.isEmpty ||
         _confirmController.text.isEmpty) {
-      _showSnack('Please fill in all fields.', const Color(0xFFE96A8F));
+      _showSnack('Please fill in all fields.', isError: true);
       return;
     }
     if (_newController.text.length < 8) {
-      _showSnack('Password must be at least 8 characters.', const Color(0xFFE96A8F));
+      _showSnack('Password must be at least 8 characters.', isError: true);
       return;
     }
     if (_newController.text != _confirmController.text) {
-      _showSnack('New passwords do not match.', const Color(0xFFE96A8F));
+      _showSnack('New passwords do not match.', isError: true);
       return;
     }
-    // TODO: Connect to Laravel API
-    _showSnack('Password updated successfully!', const Color(0xFF84B2E9));
-    Navigator.pop(context);
+
+    setState(() => _isSaving = true);
+
+    final result = await ApiService.changePassword(
+      currentPassword: _currentController.text,
+      newPassword: _newController.text,
+      newPasswordConfirmation: _confirmController.text,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (result['success'] == true) {
+      _showSnack('Password updated successfully!', isError: false);
+      Navigator.pop(context);
+    } else {
+      _showSnack(
+          result['message'] ?? 'Could not update password. Please try again.',
+          isError: true);
+    }
   }
 
-  void _showSnack(String msg, Color color) {
+  void _showSnack(String msg, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: color,
+      content: Text(msg, style: const TextStyle(fontFamily: 'Mallanna')),
+      backgroundColor:
+          isError ? const Color(0xFFE96A8F) : const Color(0xFF84B2E9),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
@@ -75,23 +95,25 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   children: [
                     Text(
                       'Enter your current password and choose a new one to update your account security.',
-                      style: TextStyle(fontFamily: 'Mallanna', fontSize: 13,
-                          color: labelColor, height: 1.5),
+                      style: TextStyle(
+                          fontFamily: 'Mallanna',
+                          fontSize: 13,
+                          color: labelColor,
+                          height: 1.5),
                     ),
                     const SizedBox(height: 20),
-
                     _buildPasswordField(
                       label: 'CURRENT PASSWORD',
                       controller: _currentController,
                       show: _showCurrent,
-                      onToggle: () => setState(() => _showCurrent = !_showCurrent),
+                      onToggle: () =>
+                          setState(() => _showCurrent = !_showCurrent),
                       cardColor: cardColor,
                       labelColor: labelColor,
                       textColor: textColor,
                       hintColor: hintColor,
                     ),
                     const SizedBox(height: 10),
-
                     _buildPasswordField(
                       label: 'NEW PASSWORD',
                       controller: _newController,
@@ -103,20 +125,18 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       hintColor: hintColor,
                     ),
                     const SizedBox(height: 10),
-
                     _buildPasswordField(
                       label: 'CONFIRM NEW PASSWORD',
                       controller: _confirmController,
                       show: _showConfirm,
-                      onToggle: () => setState(() => _showConfirm = !_showConfirm),
+                      onToggle: () =>
+                          setState(() => _showConfirm = !_showConfirm),
                       cardColor: cardColor,
                       labelColor: labelColor,
                       textColor: textColor,
                       hintColor: hintColor,
                     ),
-                    const SizedBox(height: 10),
-
-                    // Hint
+                    const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -132,30 +152,42 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             child: Text(
                               'Password must be at least 8 characters and contain a mix of letters and numbers.',
                               style: TextStyle(
-                                  fontFamily: 'Mallanna', fontSize: 11,
-                                  color: labelColor, height: 1.4),
+                                  fontFamily: 'Mallanna',
+                                  fontSize: 11,
+                                  color: labelColor,
+                                  height: 1.4),
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
-
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _handleUpdate,
+                        onPressed: _isSaving ? null : _handleUpdate,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF84B2E9),
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                              const Color(0xFF84B2E9).withOpacity(0.6),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14)),
                           elevation: 0,
                         ),
-                        child: const Text('Update Password',
-                            style: TextStyle(fontFamily: 'Mallanna',
-                                fontSize: 16, fontWeight: FontWeight.w600)),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2.5),
+                              )
+                            : const Text('Update Password',
+                                style: TextStyle(
+                                    fontFamily: 'Mallanna',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ],
@@ -177,17 +209,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 32, height: 32,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.25),
                   shape: BoxShape.circle),
-              child: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
+              child: const Icon(Icons.chevron_left,
+                  color: Colors.white, size: 20),
             ),
           ),
           const SizedBox(width: 10),
           const Text('Change Password',
-              style: TextStyle(color: Colors.white, fontFamily: 'Mallanna',
-                  fontSize: 17, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Mallanna',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -211,8 +248,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontFamily: 'Mallanna', fontSize: 10,
-                  fontWeight: FontWeight.w700, color: labelColor,
+              style: TextStyle(
+                  fontFamily: 'Mallanna',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: labelColor,
                   letterSpacing: 0.5)),
           const SizedBox(height: 6),
           Row(
@@ -221,7 +261,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 child: TextField(
                   controller: controller,
                   obscureText: !show,
-                  style: TextStyle(fontFamily: 'Archivo', fontSize: 14,
+                  style: TextStyle(
+                      fontFamily: 'Archivo',
+                      fontSize: 14,
                       color: textColor),
                   decoration: InputDecoration(
                     hintText: '••••••••',
@@ -235,8 +277,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               GestureDetector(
                 onTap: onToggle,
                 child: Icon(
-                  show ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                  size: 18, color: labelColor,
+                  show
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 18,
+                  color: labelColor,
                 ),
               ),
             ],
