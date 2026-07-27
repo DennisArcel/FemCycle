@@ -181,6 +181,8 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
     }
   }
 
+  String? get _predictionNote => _predictions?['prediction_note'] as String?;
+
   // ── Month name helper ─────────────────────────────────────────────────────
   String get _monthLabel {
     const months = ['January','February','March','April','May','June',
@@ -472,13 +474,27 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
                   color: Color(0xFF333333),
                 ),
               ),
-              Text(
-                _nextPeriodConfidenceLabel,
-                style: const TextStyle(
-                  fontFamily: 'Mallanna',
-                  fontSize: 10,
-                  color: Color(0xFFAAAAAA),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _nextPeriodConfidenceLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Mallanna',
+                      fontSize: 10,
+                      color: Color(0xFFAAAAAA),
+                    ),
+                  ),
+                  if (_predictionNote != null) ...[
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: _predictionNote!,
+                      triggerMode: TooltipTriggerMode.tap,
+                      child: const Icon(Icons.info_outline,
+                          size: 12, color: Color(0xFFAAAAAA)),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
