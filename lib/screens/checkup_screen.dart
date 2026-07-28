@@ -206,7 +206,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   bool _isLoading = true;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  static const String apiUrl = 'http://127.0.0.1:8000/api/checkups'; // Laravel IP
+  static const String apiUrl = 'https://glutinous-idealist-slit.ngrok-free.dev/api'; // Laravel IP
 
   Future<Map<String, String>> _getHeaders() async {
     String? token = await _storage.read(key: 'auth_token');

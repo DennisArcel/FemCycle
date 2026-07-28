@@ -12,7 +12,7 @@ class TypicalFlowScreen extends StatefulWidget {
 }
 
 class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
-  static const String _apiBase = 'http://127.0.0.1:8000/api/period-logs'; // Laravel IP
+  static const String _apiBase = 'https://glutinous-idealist-slit.ngrok-free.dev/api'; // Laravel IP
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   bool _isLoading = true;

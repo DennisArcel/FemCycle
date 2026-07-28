@@ -10,7 +10,7 @@ class ApiService {
   // - Physical phone (same WiFi as your PC)  -> your PC's local IP (e.g. 192.168.1.X)
   // Just change this one line depending on what you're testing on.
   // ─────────────────────────────────────────────────────────────────────
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String baseUrl = 'https://glutinous-idealist-slit.ngrok-free.dev/api';
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
@@ -74,7 +74,7 @@ class ApiService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Could not connect to server. Check your connection.',
+        'message': 'DEBUG: $e', // temporary — shows the real error
       };
     }
   }
