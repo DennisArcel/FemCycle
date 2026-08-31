@@ -1,5 +1,11 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'article_detail_screen.dart';
+import '../widgets/app_bottom_nav.dart';
+import '../widgets/coach_mark_overlay.dart';
+import '../services/tutorial_storage_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA MODELS
@@ -119,7 +125,7 @@ const List<Article> kArticles = [
     category: 'Cycle',
     tag: 'Cycle basics',
     colorKey: 'pink',
-    emoji: '🩸',
+    emoji: '',
     readTime: '5 min read',
     title: 'Understanding your menstrual cycle',
     desc: 'Your cycle is a monthly hormonal story. Here\'s how to actually read it.',
@@ -160,7 +166,7 @@ const List<Article> kArticles = [
     category: 'Cycle',
     tag: 'Cycle basics',
     colorKey: 'pink',
-    emoji: '📅',
+    emoji: '',
     readTime: '4 min read',
     title: 'Ovulation signs and your fertile window',
     desc: 'Your body announces ovulation clearly. Here\'s how to read the signals.',
@@ -202,7 +208,7 @@ const List<Article> kArticles = [
     category: 'Cycle',
     tag: 'Cycle basics',
     colorKey: 'pink',
-    emoji: '🌙',
+    emoji: '',
     readTime: '4 min read',
     title: 'The luteal phase: your body\'s wind-down',
     desc: 'Understanding the second half of your cycle — and why PMS shows up.',
@@ -243,7 +249,7 @@ const List<Article> kArticles = [
     category: 'Cycle',
     tag: 'Cycle basics',
     colorKey: 'pink',
-    emoji: '🔄',
+    emoji: '',
     readTime: '5 min read',
     title: 'Irregular periods: what\'s normal and what\'s not',
     desc: 'Not every variation in your cycle is a problem. Here\'s how to tell the difference.',
@@ -285,7 +291,7 @@ const List<Article> kArticles = [
     category: 'Cycle',
     tag: 'Cycle basics',
     colorKey: 'pink',
-    emoji: '🌸',
+    emoji: '',
     readTime: '3 min read',
     title: 'How stress silently disrupts your period',
     desc: 'Stress is one of the most common — and most overlooked — causes of cycle disruption.',
@@ -331,7 +337,7 @@ const List<Article> kArticles = [
     category: 'PCOS',
     tag: 'PCOS',
     colorKey: 'purple',
-    emoji: '🔬',
+    emoji: '',
     readTime: '6 min read',
     title: 'What is PCOS and how to manage it',
     desc: '6–12% of women have it. Most don\'t know until years later.',
@@ -372,7 +378,7 @@ const List<Article> kArticles = [
     category: 'PCOS',
     tag: 'PCOS',
     colorKey: 'purple',
-    emoji: '🌿',
+    emoji: '',
     readTime: '5 min read',
     title: 'Diet and lifestyle changes for PCOS',
     desc: 'No cure — but lifestyle changes are among the most effective interventions known.',
@@ -413,7 +419,7 @@ const List<Article> kArticles = [
     category: 'PCOS',
     tag: 'PCOS',
     colorKey: 'purple',
-    emoji: '🔥',
+    emoji: '',
     readTime: '4 min read',
     title: 'Inflammation, PCOS, and what to do about it',
     desc: 'Most women with PCOS also have chronic low-grade inflammation — and it matters.',
@@ -454,7 +460,7 @@ const List<Article> kArticles = [
     category: 'PCOS',
     tag: 'PCOS',
     colorKey: 'purple',
-    emoji: '⚖️',
+    emoji: '',
     readTime: '5 min read',
     title: 'PCOS and mental health: the hidden connection',
     desc: 'Women with PCOS are significantly more likely to experience anxiety and depression.',
@@ -495,7 +501,7 @@ const List<Article> kArticles = [
     category: 'PCOS',
     tag: 'PCOS',
     colorKey: 'purple',
-    emoji: '🩺',
+    emoji: '',
     readTime: '4 min read',
     title: 'Getting diagnosed with PCOS: what to expect',
     desc: 'PCOS is often missed for years. Here\'s how the diagnosis process actually works.',
@@ -540,7 +546,7 @@ const List<Article> kArticles = [
     category: 'Nutrition',
     tag: 'Nutrition',
     colorKey: 'green',
-    emoji: '🥗',
+    emoji: '',
     readTime: '3 min read',
     title: 'Best foods to eat during your period',
     desc: 'Iron, omega-3s, and magnesium are your body\'s most useful tools right now.',
@@ -580,7 +586,7 @@ const List<Article> kArticles = [
     category: 'Nutrition',
     tag: 'Nutrition',
     colorKey: 'green',
-    emoji: '💧',
+    emoji: '',
     readTime: '2 min read',
     title: 'Staying hydrated during your cycle',
     desc: 'Drinking more water when bloated feels wrong. It\'s actually exactly right.',
@@ -621,7 +627,7 @@ const List<Article> kArticles = [
     category: 'Nutrition',
     tag: 'Nutrition',
     colorKey: 'green',
-    emoji: '🫐',
+    emoji: '',
     readTime: '4 min read',
     title: 'Eating for each phase of your cycle',
     desc: 'Your nutritional needs genuinely shift across all four phases.',
@@ -662,7 +668,7 @@ const List<Article> kArticles = [
     category: 'Nutrition',
     tag: 'Nutrition',
     colorKey: 'green',
-    emoji: '🌾',
+    emoji: '',
     readTime: '3 min read',
     title: 'Calcium, magnesium, and B vitamins for PMS',
     desc: 'Three nutrients that clinical research consistently links to reduced PMS symptoms.',
@@ -703,7 +709,7 @@ const List<Article> kArticles = [
     category: 'Nutrition',
     tag: 'Nutrition',
     colorKey: 'green',
-    emoji: '🫚',
+    emoji: '',
     readTime: '4 min read',
     title: 'Anti-inflammatory eating for menstrual health',
     desc: 'Inflammation drives cramps, fatigue, and mood changes. Your diet can turn it down.',
@@ -749,7 +755,7 @@ const List<Article> kArticles = [
     category: 'Mental Health',
     tag: 'Mental health',
     colorKey: 'blue',
-    emoji: '🧠',
+    emoji: '',
     readTime: '4 min read',
     title: 'Managing mood swings during PMS',
     desc: 'Irritability before your period isn\'t a personality trait — it\'s physiology.',
@@ -790,7 +796,7 @@ const List<Article> kArticles = [
     category: 'Mental Health',
     tag: 'Mental health',
     colorKey: 'blue',
-    emoji: '😰',
+    emoji: '',
     readTime: '4 min read',
     title: 'Anxiety and your menstrual cycle',
     desc: 'Cycle-related anxiety is common, real, and more manageable than you think.',
@@ -831,7 +837,7 @@ const List<Article> kArticles = [
     category: 'Mental Health',
     tag: 'Mental health',
     colorKey: 'blue',
-    emoji: '😴',
+    emoji: '',
     readTime: '3 min read',
     title: 'How your cycle affects your sleep',
     desc: 'Sleep quality changes measurably across your cycle — and there\'s a lot you can do about it.',
@@ -872,7 +878,7 @@ const List<Article> kArticles = [
     category: 'Mental Health',
     tag: 'Mental health',
     colorKey: 'blue',
-    emoji: '🫂',
+    emoji: '',
     readTime: '5 min read',
     title: 'PMDD: when PMS becomes something more serious',
     desc: 'Premenstrual Dysphoric Disorder is real, diagnosable, and highly treatable.',
@@ -913,7 +919,7 @@ const List<Article> kArticles = [
     category: 'Mental Health',
     tag: 'Mental health',
     colorKey: 'blue',
-    emoji: '🧘',
+    emoji: '',
     readTime: '3 min read',
     title: 'Mindfulness practices for cycle symptoms',
     desc: 'Simple mindfulness habits can meaningfully reduce cycle-related emotional symptoms.',
@@ -958,7 +964,7 @@ const List<Article> kArticles = [
     category: 'Lifestyle',
     tag: 'Lifestyle',
     colorKey: 'amber',
-    emoji: '🏃',
+    emoji: '',
     readTime: '4 min read',
     title: 'Sync your workouts to your cycle',
     desc: 'Your strength, stamina, and recovery all change week to week. Train accordingly.',
@@ -1000,7 +1006,7 @@ const List<Article> kArticles = [
     category: 'Lifestyle',
     tag: 'Lifestyle',
     colorKey: 'amber',
-    emoji: '💪',
+    emoji: '',
     readTime: '4 min read',
     title: 'Exercise for period pain and PMS relief',
     desc: 'Movement is one of the most effective — and most avoided — tools for period symptoms.',
@@ -1041,7 +1047,7 @@ const List<Article> kArticles = [
     category: 'Lifestyle',
     tag: 'Lifestyle',
     colorKey: 'amber',
-    emoji: '😴',
+    emoji: '',
     readTime: '3 min read',
     title: 'Sleep strategies for every phase of your cycle',
     desc: 'Your sleep needs change across your cycle. Here\'s how to optimize every week.',
@@ -1083,7 +1089,7 @@ const List<Article> kArticles = [
     category: 'Lifestyle',
     tag: 'Lifestyle',
     colorKey: 'amber',
-    emoji: '⚡',
+    emoji: '',
     readTime: '4 min read',
     title: 'Productivity and your menstrual cycle',
     desc: 'Your brain\'s capabilities genuinely shift across your cycle. Working with that is a superpower.',
@@ -1125,7 +1131,7 @@ const List<Article> kArticles = [
     category: 'Lifestyle',
     tag: 'Lifestyle',
     colorKey: 'amber',
-    emoji: '🌱',
+    emoji: '',
     readTime: '3 min read',
     title: 'Self-care practices for each cycle phase',
     desc: 'Rest, connection, creativity, and reflection — matched to when your body needs them most.',
@@ -1180,17 +1186,57 @@ class _EducationalScreenState extends State<EducationalScreen> {
   ];
 
   static const Map<String, Color> _tabColors = {
-    'All':           Color(0xFF84B2E9),
-    'Cycle':         Color(0xFFE96A8F),
+    'All':           _Glass.blueDeep,
+    'Cycle':         _Glass.pinkDeep,
     'PCOS':          Color(0xFFA865C0),
     'Nutrition':     Color(0xFF3BAF7E),
-    'Mental Health': Color(0xFF84B2E9),
+    'Mental Health': _Glass.blueDeep,
     'Lifestyle':     Color(0xFFD4843A),
   };
 
   int _selectedTab = 0;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+
+  // ── Coach-mark tour targets ──
+  final GlobalKey _searchBarKey = GlobalKey();
+  final GlobalKey _chipsKey = GlobalKey();
+  final GlobalKey _heroKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeShowCoachTour();
+  }
+
+  Future<void> _maybeShowCoachTour() async {
+    final seen = await TutorialStorageService.hasSeenTour(TutorialStorageService.learn);
+    if (seen || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startCoachTour());
+  }
+
+  void _startCoachTour() {
+    final steps = [
+      CoachMarkStep(
+        targetKey: _searchBarKey,
+        title: 'Search anything',
+        description: 'Look up a topic, symptom, or article title directly.',
+      ),
+      CoachMarkStep(
+        targetKey: _chipsKey,
+        title: 'Filter by category',
+        description: 'Jump straight to Cycle, PCOS, Nutrition, Mental Health, or Lifestyle articles.',
+      ),
+      if (kArticles.isNotEmpty)
+        CoachMarkStep(
+          targetKey: _heroKey,
+          title: 'Featured read',
+          description: 'Your top article for the current filter is always featured up here.',
+        ),
+    ];
+    showCoachMarkTour(context: context, steps: steps)
+        .then((_) => TutorialStorageService.markTourSeen(TutorialStorageService.learn));
+  }
 
   @override
   void dispose() {
@@ -1220,111 +1266,113 @@ class _EducationalScreenState extends State<EducationalScreen> {
   Widget build(BuildContext context) {
     final list = _filtered;
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF7F1),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                      child: Column(children: [
-                        _searchBar(),
-                        const SizedBox(height: 12),
-                        _chips(),
-                        const SizedBox(height: 14),
-                      ]),
-                    ),
-                  ),
-                  if (list.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: _heroCard(list.first),
-                      ),
-                    ),
-                    if (list.length > 1) ...[
-                      const SliverToBoxAdapter(
+      backgroundColor: _Glass.pageBackground,
+      bottomNavigationBar: const AppBottomNav(currentIndex: 4),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _AmbientBackground()),
+          SafeArea(
+            child: Column(
+              children: [
+                _topBar(),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(14, 16, 14, 8),
-                          child: Text(
-                            'MORE READS',
-                            style: TextStyle(
-                              fontFamily: 'Mallanna',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFABABAB),
-                              letterSpacing: .8,
-                            ),
-                          ),
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                          child: Column(children: [
+                            KeyedSubtree(key: _searchBarKey, child: _searchBar()),
+                            const SizedBox(height: 12),
+                            KeyedSubtree(key: _chipsKey, child: _chips()),
+                            const SizedBox(height: 14),
+                          ]),
                         ),
                       ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 32),
-                        sliver: _restSliver(list.skip(1).toList()),
-                      ),
+                      if (list.isNotEmpty) ...[
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: KeyedSubtree(key: _heroKey, child: _heroCard(list.first)),
+                          ),
+                        ),
+                        if (list.length > 1) ...[
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+                              child: Text(
+                                'MORE READS',
+                                style: _Glass.body(
+                                  size: 11,
+                                  weight: FontWeight.w700,
+                                  color: _Glass.textHint,
+                                ).copyWith(letterSpacing: .8),
+                              ),
+                            ),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 32),
+                            sliver: _restSliver(list.skip(1).toList()),
+                          ),
+                        ],
+                      ] else
+                        SliverFillRemaining(child: _empty()),
                     ],
-                  ] else
-                    SliverFillRemaining(child: _empty()),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   // ── Widgets ──────────────────────────────────────────────────────────────
 
-  Widget _topBar() => Container(
-        color: const Color(0xFF84B2E9),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.25),
-                shape: BoxShape.circle,
+  Widget _topBar() => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+        child: _Glass.card(
+          radius: 18,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(children: [
+            Text('Learn', style: _Glass.heading(size: 18, weight: FontWeight.w600)),
+            const Spacer(),
+            GestureDetector(
+              onTap: _startCoachTour,
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: _Glass.blue.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
               ),
-              child: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
             ),
-          ),
-          const SizedBox(width: 10),
-          const Text('Learn',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Mallanna',
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600)),
-        ]),
+          ]),
+        ),
       );
 
   Widget _searchBar() => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E0D8)),
+          color: Colors.white.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.7)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
         child: Row(children: [
-          const Icon(Icons.search, color: Color(0xFFABABAB), size: 18),
+          Icon(Icons.search, color: _Glass.textMuted, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _searchController,
               onChanged: (v) => setState(() => _searchQuery = v),
-              style: const TextStyle(
-                  fontFamily: 'Mallanna', fontSize: 13, color: Color(0xFF1A1A1A)),
-              decoration: const InputDecoration(
+              style: _Glass.body(size: 13),
+              decoration: InputDecoration(
                 hintText: 'Search topics, articles...',
-                hintStyle: TextStyle(color: Color(0xFFABABAB), fontSize: 13),
+                hintStyle: _Glass.body(size: 13, color: _Glass.textHint),
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -1341,24 +1389,23 @@ class _EducationalScreenState extends State<EducationalScreen> {
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (_, i) {
             final isActive = _selectedTab == i;
-            final col = _tabColors[_tabs[i]] ?? const Color(0xFF84B2E9);
+            final col = _tabColors[_tabs[i]] ?? _Glass.blueDeep;
             return GestureDetector(
               onTap: () => setState(() => _selectedTab = i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
                 decoration: BoxDecoration(
-                  color: isActive ? col : Colors.white,
+                  color: isActive ? col : Colors.white.withOpacity(0.55),
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                      color: isActive ? col : const Color(0xFFE5E0D8)),
+                      color: isActive ? col : Colors.white.withOpacity(0.7)),
                 ),
                 child: Text(_tabs[i],
-                    style: TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isActive ? Colors.white : const Color(0xFF6B6B6B),
+                    style: _Glass.body(
+                      size: 12,
+                      weight: FontWeight.w600,
+                      color: isActive ? Colors.white : _Glass.textMuted,
                     )),
               ),
             );
@@ -1370,105 +1417,74 @@ class _EducationalScreenState extends State<EducationalScreen> {
     final c = colorOf(a.colorKey);
     return GestureDetector(
       onTap: () => _openArticle(a),
-      child: Container(
-        decoration:
-            BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: _Glass.card(
+        radius: 20,
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Container(
-              height: 185,
-              color: c.surface,
-              child: Stack(children: [
-                Center(child: Text(a.emoji, style: const TextStyle(fontSize: 80))),
-                Positioned(
-                  bottom: 14,
-                  left: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                    decoration: BoxDecoration(
-                        color: c.deep, borderRadius: BorderRadius.circular(30)),
-                    child: Text(a.tag,
-                        style: const TextStyle(
-                            fontFamily: 'Mallanna',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
-                  ),
-                ),
-              ]),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+              decoration: BoxDecoration(
+                  color: c.deep, borderRadius: BorderRadius.circular(30)),
+              child: Text(a.tag,
+                  style: _Glass.body(
+                      size: 10, weight: FontWeight.w600, color: Colors.white)),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text("Editor's pick",
+            const SizedBox(width: 8),
+            Text("Editor's pick",
+                style: _Glass.body(
+                  size: 10,
+                  weight: FontWeight.w700,
+                  color: c.accent,
+                ).copyWith(letterSpacing: .6)),
+          ]),
+          const SizedBox(height: 10),
+          Text(a.title,
+              style: _Glass.heading(
+                size: 21,
+                weight: FontWeight.w700,
+                color: _Glass.textDark,
+              ).copyWith(height: 1.22)),
+          const SizedBox(height: 8),
+          Text(a.desc,
+              style: _Glass.body(
+                size: 13,
+                color: _Glass.textMuted,
+              ).copyWith(height: 1.6)),
+          const SizedBox(height: 14),
+          Row(children: [
+            CircleAvatar(
+              radius: 13,
+              backgroundColor: c.accent,
+              child: const Text('FC',
                   style: TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: FontWeight.w700,
-                      color: c.accent,
-                      letterSpacing: .6)),
-              const SizedBox(height: 6),
-              Text(a.title,
-                  style: const TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 21,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                      height: 1.22)),
-              const SizedBox(height: 8),
-              Text(a.desc,
-                  style: const TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 13,
-                      color: Color(0xFF6B6B6B),
-                      height: 1.6)),
-              const SizedBox(height: 14),
-              Row(children: [
-                CircleAvatar(
-                  radius: 13,
-                  backgroundColor: c.accent,
-                  child: const Text('FC',
-                      style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                ),
-                const SizedBox(width: 8),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('FemCycle Health',
-                      style: TextStyle(
-                          fontFamily: 'Mallanna',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF6B6B6B))),
-                  Text(a.readTime,
-                      style: const TextStyle(
-                          fontFamily: 'Mallanna',
-                          fontSize: 11,
-                          color: Color(0xFFABABAB))),
-                ]),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => _openArticle(a),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                        color: c.accent,
-                        borderRadius: BorderRadius.circular(30)),
-                    child: const Text('Read article',
-                        style: TextStyle(
-                            fontFamily: 'Mallanna',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
-                  ),
-                ),
-              ]),
+                      color: Colors.white)),
+            ),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('FemCycle Health',
+                  style: _Glass.body(
+                      size: 11, weight: FontWeight.w600, color: _Glass.textMuted)),
+              Text(a.readTime,
+                  style: _Glass.body(size: 11, color: _Glass.textHint)),
             ]),
-          ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _openArticle(a),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                    color: c.accent,
+                    borderRadius: BorderRadius.circular(30)),
+                child: Text('Read article',
+                    style: _Glass.body(
+                        size: 12, weight: FontWeight.w600, color: Colors.white)),
+              ),
+            ),
+          ]),
         ]),
       ),
     );
@@ -1506,63 +1522,30 @@ class _EducationalScreenState extends State<EducationalScreen> {
     final c = colorOf(a.colorKey);
     return GestureDetector(
       onTap: () => _openArticle(a),
-      child: Container(
-        decoration:
-            BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: _Glass.card(
+        radius: 16,
+        padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Container(
-              height: 88,
-              color: c.surface,
-              child: Stack(children: [
-                Center(
-                    child: Text(a.emoji,
-                        style: const TextStyle(fontSize: 36))),
-                Positioned(
-                  top: 9,
-                  right: 9,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                        color: c.accent, shape: BoxShape.circle),
-                  ),
-                ),
-              ]),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(a.tag.toUpperCase(),
-                  style: TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: c.accent,
-                      letterSpacing: .5)),
+                  style: _Glass.body(
+                    size: 9,
+                    weight: FontWeight.w700,
+                    color: c.accent,
+                  ).copyWith(letterSpacing: .5)),
               const SizedBox(height: 3),
               Text(a.title,
-                  style: const TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                      height: 1.3)),
+                  style: _Glass.heading(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: _Glass.textDark,
+                  ).copyWith(height: 1.3)),
               const SizedBox(height: 6),
               Row(children: [
-                const Icon(Icons.access_time_rounded,
-                    size: 10, color: Color(0xFFABABAB)),
+                Icon(Icons.access_time_rounded, size: 10, color: _Glass.textHint),
                 const SizedBox(width: 3),
                 Text(a.readTime,
-                    style: const TextStyle(
-                        fontFamily: 'Mallanna',
-                        fontSize: 10,
-                        color: Color(0xFFABABAB))),
+                    style: _Glass.body(size: 10, color: _Glass.textHint)),
               ]),
-            ]),
-          ),
         ]),
       ),
     );
@@ -1572,76 +1555,198 @@ class _EducationalScreenState extends State<EducationalScreen> {
     final c = colorOf(a.colorKey);
     return GestureDetector(
       onTap: () => _openArticle(a),
-      child: Container(
+      child: _Glass.card(
+        radius: 16,
         padding: const EdgeInsets.all(14),
-        decoration:
-            BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-                color: c.surface, borderRadius: BorderRadius.circular(14)),
-            alignment: Alignment.center,
-            child: Text(a.emoji, style: const TextStyle(fontSize: 28)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(a.tag.toUpperCase(),
-                  style: TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: c.accent,
-                      letterSpacing: .5)),
+                  style: _Glass.body(
+                    size: 9,
+                    weight: FontWeight.w700,
+                    color: c.accent,
+                  ).copyWith(letterSpacing: .5)),
               const SizedBox(height: 3),
               Text(a.title,
-                  style: const TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                      height: 1.3)),
+                  style: _Glass.heading(
+                    size: 14,
+                    weight: FontWeight.w700,
+                    color: _Glass.textDark,
+                  ).copyWith(height: 1.3)),
               const SizedBox(height: 4),
               Text(a.desc,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 12,
-                      color: Color(0xFF6B6B6B),
-                      height: 1.5)),
+                  style: _Glass.body(
+                    size: 12,
+                    color: _Glass.textMuted,
+                  ).copyWith(height: 1.5)),
               const SizedBox(height: 6),
               Row(children: [
-                const Icon(Icons.access_time_rounded,
-                    size: 10, color: Color(0xFFABABAB)),
+                Icon(Icons.access_time_rounded, size: 10, color: _Glass.textHint),
                 const SizedBox(width: 3),
                 Text(a.readTime,
-                    style: const TextStyle(
-                        fontFamily: 'Mallanna',
-                        fontSize: 10,
-                        color: Color(0xFFABABAB))),
+                    style: _Glass.body(size: 10, color: _Glass.textHint)),
               ]),
-            ]),
-          ),
         ]),
       ),
     );
   }
 
-  Widget _empty() => const Center(
+  Widget _empty() => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🔍', style: TextStyle(fontSize: 40)),
-            SizedBox(height: 12),
+            const Icon(Icons.search_off_rounded, size: 40, color: _Glass.textHint),
+            const SizedBox(height: 12),
             Text('No articles found',
-                style: TextStyle(
-                    fontFamily: 'Mallanna',
-                    fontSize: 15,
-                    color: Color(0xFF888888))),
+                style: _Glass.body(size: 15, color: _Glass.textMuted)),
           ],
         ),
       );
+}
+
+// ─── Glass design tokens ───────────────────────────────────────────────────────
+// Shared frosted-glass / ambient-blob design system reused across every
+// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
+
+class _Glass {
+  static const Color pageBackground = Color(0xFFF3F1FB);
+
+  static const Color blue = Color(0xFF9FC8FF);
+  static const Color blueDeep = Color(0xFF5B93E0);
+  static const Color pink = Color(0xFFFFA7CE);
+  static const Color pinkDeep = Color(0xFFE0679A);
+  static const Color purple = Color(0xFFC6ACFF);
+  static const Color purpleDeep = Color(0xFF9A78E0);
+
+  static const Color textDark = Color(0xFF2B2638);
+  static const Color textMuted = Color(0xFF6E677D);
+  static const Color textHint = Color(0xFFA6A0B4);
+
+  static TextStyle heading({
+    double size = 22,
+    FontWeight weight = FontWeight.w700,
+    Color color = textDark,
+  }) =>
+      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
+
+  static TextStyle body({
+    double size = 14,
+    FontWeight weight = FontWeight.w500,
+    Color color = textDark,
+  }) =>
+      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
+
+  /// Frosted translucent card: blurred backdrop + soft white glass fill.
+  static Widget card({
+    required Widget child,
+    double radius = 24,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    double opacity = 0.55,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(opacity),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: purpleDeep.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  static ButtonStyle primaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: blueDeep,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: blueDeep.withOpacity(0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 0,
+    );
+  }
+}
+
+/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
+/// behind the frosted glass content. Purely decorative — no state that
+/// affects the rest of the screen.
+class _AmbientBackground extends StatefulWidget {
+  const _AmbientBackground();
+
+  @override
+  State<_AmbientBackground> createState() => _AmbientBackgroundState();
+}
+
+class _AmbientBackgroundState extends State<_AmbientBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 22),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value * 2 * math.pi;
+        return Stack(
+          children: [
+            Container(color: _Glass.pageBackground),
+            Positioned(
+              top: -60 + 24 * math.sin(t),
+              left: -70 + 20 * math.cos(t),
+              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
+            ),
+            Positioned(
+              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
+              right: -90 + 22 * math.sin(t * 0.85),
+              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
+            ),
+            Positioned(
+              bottom: -80 + 20 * math.sin(t * 1.15),
+              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
+              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _blob(double diameter, Color color) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+      child: Container(
+        width: diameter,
+        height: diameter,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
 }

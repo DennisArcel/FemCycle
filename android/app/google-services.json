@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "358828337731",
+    "project_id": "femcycle-b7499",
+    "storage_bucket": "femcycle-b7499.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358828337731:android:2c5d8f68bf62ec9298c2f6",
+        "android_client_info": {
+          "package_name": "com.capstone.femcycleapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDih8X2kV7iy8ClaU6dCH-9zPOYSmpNj1k"
+        },
+        {
+          "current_key": "AIzaSyA9lm55rWiiUhh4aYXpLrMMIH2waYz1WYg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358828337731:android:c7641ac22f4da69098c2f6",
+        "android_client_info": {
+          "package_name": "com.example.femcycle_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDih8X2kV7iy8ClaU6dCH-9zPOYSmpNj1k"
+        },
+        {
+          "current_key": "AIzaSyA9lm55rWiiUhh4aYXpLrMMIH2waYz1WYg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

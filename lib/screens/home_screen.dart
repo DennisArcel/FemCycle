@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'educational_screen.dart';
 import 'lifestyle_screen.dart';
 import 'profile_screen.dart';
@@ -10,9 +13,15 @@ import 'mood_monitoring_screen.dart';
 import 'checkup_screen.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart'; // Imported your API service
+import 'health_profile_screen.dart';
+import '../widgets/app_bottom_nav.dart';
+import '../widgets/coach_mark_overlay.dart';
+import '../services/tutorial_storage_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool autoOpenAddSheet;
+  const HomeScreen({super.key, this.autoOpenAddSheet = false});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -33,6 +42,14 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedMood = -1;
   int _selectedEnergy = -1;
 
+  // ── Coach-mark tour targets ──
+  final GlobalKey _avatarKey = GlobalKey();
+  final GlobalKey _calendarKey = GlobalKey();
+  final GlobalKey _addCycleKey = GlobalKey();
+
+  final FlutterLocalNotificationsPlugin _testNotifications =
+    FlutterLocalNotificationsPlugin();
+
   // ── PROFILE STATE VARIABLES ──
   String _firstName = 'User';
   bool _isLoadingProfile = true;
@@ -49,7 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _confidence = 'insufficient_data';
   Map<String, dynamic>? _nextPredictedRange; // {earliest, latest}
   bool _isIrregular = false;
-  Map<String, dynamic>? _pcosRisk;
+  Map<String, dynamic>? _cycleHealthSignals;
+  bool _healthBannerDismissed = false;
 
   @override
   void initState() {
@@ -57,6 +75,42 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadProfile();
     _fetchPeriodLogs();
     _fetchPredictions();
+    if (widget.autoOpenAddSheet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showAddPeriodSheet());
+    }
+    _maybeShowCoachTour();
+  }
+
+  Future<void> _maybeShowCoachTour() async {
+    final seen = await TutorialStorageService.hasSeenTour(TutorialStorageService.home);
+    if (seen || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startCoachTour());
+  }
+
+  void _startCoachTour() {
+    showCoachMarkTour(
+      context: context,
+      steps: [
+        CoachMarkStep(
+          targetKey: _avatarKey,
+          title: 'Your profile',
+          description: 'Tap your avatar anytime to view or edit your profile and settings.',
+          isCircle: true,
+          highlightPadding: const EdgeInsets.all(4),
+        ),
+        CoachMarkStep(
+          targetKey: _calendarKey,
+          title: 'Your cycle calendar',
+          description:
+              'Logged days, today, and your predicted period all show up here at a glance. Tap any day to log or edit it.',
+        ),
+        CoachMarkStep(
+          targetKey: _addCycleKey,
+          title: 'Log a new day',
+          description: 'Tap here to record flow, energy, and mood for today or any past date.',
+        ),
+      ],
+    ).then((_) => TutorialStorageService.markTourSeen(TutorialStorageService.home));
   }
 
   Future<void> _loadProfile() async {
@@ -75,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Period-logs API ────────────────────────────────────────────────────────
-  static const String _apiBase = 'https://glutinous-idealist-slit.ngrok-free.dev/api'; // Laravel IP
+  static const String _apiBase = 'https://femcycleapp-production.up.railway.app/api/period-logs'; // Laravel IP
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   Future<Map<String, String>> _getHeaders() async {
@@ -137,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _confidence = data['confidence'] ?? 'insufficient_data';
           _nextPredictedRange = data['next_predicted_range'];
           _isIrregular = data['is_irregular'] ?? false;
-          _pcosRisk = data['pcos_risk'];
+          _cycleHealthSignals = data['cycle_health_signals'];
         });
       }
     } catch (e) {
@@ -287,118 +341,156 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Energy may dip and PMS symptoms can appear — be gentle with yourself and prioritize rest.';
   }
 
+  // ── Health profile reminder banner ────────────────────────────────────────
+  // Just a nudge to go fill out / answer the Health Profile symptoms
+  // questionnaire — not tied to any prediction data. Shows until the user
+  // dismisses it (or you wire in a real "already completed" check from the
+  // backend) and taps through to HealthProfileScreen.
+  Widget _buildHealthProfileBanner() {
+    if (_healthBannerDismissed) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HealthProfileScreen()),
+          );
+        },
+        child: _Glass.card(
+          radius: 20,
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC6ACFF).withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.health_and_safety_outlined,
+                    color: _Glass.purpleDeep, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Don't forget to complete your health profile!",
+                      style: _Glass.heading(size: 13.5, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A few quick questions about your symptoms helps us '
+                      'personalize your insights.',
+                      style: _Glass.body(size: 11.5, color: _Glass.textMuted)
+                          .copyWith(height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          'Complete it now',
+                          style: _Glass.body(
+                              size: 11.5, weight: FontWeight.w700, color: _Glass.blueDeep),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_forward, size: 12, color: _Glass.blueDeep),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _healthBannerDismissed = true),
+                child: Icon(Icons.close, size: 16, color: _Glass.textHint),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Phase ring widget ─────────────────────────────────────────────────────
   Widget _buildPhaseRingCard() {
     final day = _cycleDay;
     final phase = _currentPhaseLabel;
     final progress = (day / _effectiveCycleLength).clamp(0.0, 1.0);
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            width: 168,
-            height: 168,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CustomPaint(
-                  size: const Size(168, 168),
-                  painter: _PhaseRingPainter(progress: progress),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$day',
-                      style: TextStyle(
-                        fontFamily: 'Mallanna',
-                        fontSize: 34,
-                        fontWeight: FontWeight.w700,
-                        color: context.textPrimary,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'days into cycle',
-                      style: TextStyle(
-                        fontFamily: 'Mallanna',
-                        fontSize: 10.5,
-                        color: context.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE96A8F),
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: _Glass.card(
+        radius: 22,
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+        child: Column(
+          children: [
+            SizedBox(
+              width: 168,
+              height: 168,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(168, 168),
+                    painter: _PhaseRingPainter(progress: progress),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  phase,
-                  style: const TextStyle(
-                    fontFamily: 'Mallanna',
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF84B2E9).withOpacity(0.08),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.auto_awesome,
-                    size: 15, color: Color(0xFFE96A8F)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _phaseInsight,
-                    style: TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 11.5,
-                      color: context.textSecondary,
-                      height: 1.4,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [_Glass.pinkDeep, _Glass.purpleDeep]),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    phase,
+                    style: _Glass.body(size: 11.5, weight: FontWeight.w600, color: Colors.white),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _Glass.blue.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.auto_awesome, size: 15, color: _Glass.pinkDeep),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _phaseInsight,
+                      style: _Glass.body(size: 11.5, color: _Glass.textMuted).copyWith(height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -406,101 +498,98 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildPhaseRingCard(),
-                    _buildCalendar(),
-                    _buildLogSection(),
-                  ],
+      backgroundColor: _Glass.pageBackground,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _AmbientBackground()),
+          SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                    children: [
+                      _buildHealthProfileBanner(),
+                      KeyedSubtree(key: _calendarKey, child: _buildCalendar()),
+                      KeyedSubtree(key: _addCycleKey, child: _buildAddCycleButton()),
+                    ],
+                  ),
+                  ),
                 ),
-              ),
+               AppBottomNav(
+                  currentIndex: 2,
+                  onAddPressed: _showAddPeriodSheet,
+                ),
+              ],
             ),
-            _buildBottomNav(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   // ── Top Bar ───────────────────────────────────────────────────────────────
   Widget _buildTopBar() {
-    return Container(
-      color: const Color(0xFF84B2E9),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      child: Row(
-        children: [
-          // Avatar — tap to open Profile
-          GestureDetector(
-            onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()));
-            },
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE96A8F),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _firstName.isNotEmpty ? _firstName[0].toUpperCase() : 'U',
-                style: TextStyle(
-                  color: context.cardColor,
-                  fontFamily: 'Mallanna',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      child: _Glass.card(
+        radius: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            // Avatar — tap to open Profile
+            GestureDetector(
+              key: _avatarKey,
+              onTap: () {
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()));
+              },
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [_Glass.pinkDeep, _Glass.purpleDeep]),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _firstName.isNotEmpty ? _firstName[0].toUpperCase() : 'U',
+                  style: _Glass.body(size: 16, weight: FontWeight.w600, color: Colors.white),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          // Greeting
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hi, $_firstName!',
-                style: TextStyle(
-                  color: context.cardColor,
-                  fontFamily: 'Mallanna',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+            const SizedBox(width: 10),
+            // Greeting
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hi, $_firstName!',
+                  style: _Glass.heading(size: 14, weight: FontWeight.w600),
                 ),
-              ),
-              const Text(
-                'Track your cycle today',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontFamily: 'Mallanna',
-                  fontSize: 11,
+                Text(
+                  'Track your cycle today',
+                  style: _Glass.body(size: 11, color: _Glass.textMuted),
                 ),
+              ],
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: _startCoachTour,
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: _Glass.blue.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
               ),
-            ],
-          ),
-          const Spacer(),
-          // Notification bell
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.25),
-              shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.notifications_outlined,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -514,136 +603,144 @@ class _HomeScreenState extends State<HomeScreen> {
     final firstWeekday =
         DateTime(_currentMonth.year, _currentMonth.month, 1).weekday % 7;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          // Month header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$monthName $year',
-                style: TextStyle(
-                  fontFamily: 'Mallanna',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: context.textPrimary,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: _Glass.card(
+        radius: 18,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            // Month header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$monthName $year',
+                  style: _Glass.body(size: 14, weight: FontWeight.w700),
                 ),
-              ),
-              Row(
-                children: [
-                  _calNavBtn(Icons.chevron_left, _previousMonth),
-                  const SizedBox(width: 4),
-                  _calNavBtn(Icons.chevron_right, _nextMonth),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Day labels
-          Row(
-            children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                .map(
-                  (d) => Expanded(
-                    child: Center(
-                      child: Text(
-                        d,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFFAAAAAA),
-                          fontWeight: FontWeight.w500,
+                Row(
+                  children: [
+                    _calNavBtn(Icons.chevron_left, _previousMonth),
+                    const SizedBox(width: 4),
+                    _calNavBtn(Icons.chevron_right, _nextMonth),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Day labels
+            Row(
+              children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                  .map(
+                    (d) => Expanded(
+                      child: Center(
+                        child: Text(
+                          d,
+                          style: _Glass.body(size: 10, weight: FontWeight.w500, color: _Glass.textHint),
                         ),
                       ),
                     ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 6),
-          // Day grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 1.1,
+                  )
+                  .toList(),
             ),
-            itemCount: firstWeekday + daysInMonth,
-            itemBuilder: (context, index) {
-              if (index < firstWeekday) return const SizedBox();
-              final day = index - firstWeekday + 1;
-              final isToday = _currentMonth.year == _today.year &&
-                  _currentMonth.month == _today.month &&
-                  day == _today.day;
-              final isPeriod = _periodDays.contains(day);
-              final isPredicted = _predictedDays.contains(day);
+            const SizedBox(height: 6),
+            // Day grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: firstWeekday + daysInMonth,
+              itemBuilder: (context, index) {
+                if (index < firstWeekday) return const SizedBox();
+                final day = index - firstWeekday + 1;
+                final isToday = _currentMonth.year == _today.year &&
+                    _currentMonth.month == _today.month &&
+                    day == _today.day;
+                final isPeriod = _periodDays.contains(day);
+                final isPredicted = _predictedDays.contains(day);
 
-              Color bg = Colors.transparent;
-              Color textColor = const Color(0xFF444444);
+                Color bg = Colors.transparent;
+                Color textColor = _Glass.textDark;
 
-              if (isToday) {
-                bg = const Color(0xFF84B2E9);
-                textColor = Colors.white;
-              } else if (isPeriod) {
-                bg = const Color(0xFFFFEEF3);
-                textColor = const Color(0xFFBC6B9C);
-              } else if (isPredicted) {
-                bg = const Color(0xFFE4E8FE);
-                textColor = const Color(0xFF84B2E9);
-              }
+                if (isToday) {
+                  bg = _Glass.blueDeep;
+                  textColor = Colors.white;
+                } else if (isPeriod) {
+                  bg = _Glass.pink.withOpacity(0.25);
+                  textColor = _Glass.pinkDeep;
+                } else if (isPredicted) {
+                  bg = _Glass.blue.withOpacity(0.22);
+                  textColor = _Glass.blueDeep;
+                }
 
-              return GestureDetector(
-                onTap: () {
-                  final tapped = DateTime(
-                      _currentMonth.year, _currentMonth.month, day);
-                  if (_cycleEntries.containsKey(tapped)) {
-                    _showUpdateDeleteSheet(tapped);
-                  } else {
-                    _showAddCycleForDay(tapped);
-                  }
-                },
-                child: Container(
-                  margin: const EdgeInsets.all(1),
-                  decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: textColor,
-                      fontWeight:
-                          isToday ? FontWeight.w700 : FontWeight.normal,
+                return GestureDetector(
+                  onTap: () {
+                    final tapped = DateTime(
+                        _currentMonth.year, _currentMonth.month, day);
+                    if (_cycleEntries.containsKey(tapped)) {
+                      _showUpdateDeleteSheet(tapped);
+                    } else {
+                      _showAddCycleForDay(tapped);
+                    }
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$day',
+                      style: _Glass.body(
+                        size: 11,
+                        color: textColor,
+                        weight: isToday ? FontWeight.w700 : FontWeight.normal,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            // Legend
+            Divider(height: 1, color: Colors.white.withOpacity(0.6)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _legendItem(_Glass.pinkDeep, 'Period'),
+                const SizedBox(width: 16),
+                _legendItem(_Glass.blueDeep, 'Today'),
+                const SizedBox(width: 16),
+                _legendItem(_Glass.blue.withOpacity(0.3),
+                    'Predicted', border: _Glass.blueDeep),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+    Widget _buildAddCycleButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton.icon(
+          onPressed: _showAddPeriodSheet,
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: Text(
+            'Add Cycle',
+            style: _Glass.heading(size: 15, weight: FontWeight.w600, color: Colors.white),
           ),
-          const SizedBox(height: 10),
-          // Legend
-          const Divider(height: 1, color: Color(0xFFEEEEEE)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _legendItem(const Color(0xFFE96A8F), 'Period'),
-              const SizedBox(width: 16),
-              _legendItem(const Color(0xFF84B2E9), 'Today'),
-              const SizedBox(width: 16),
-              _legendItem(const Color(0xFFE4E8FE),
-                  'Predicted', border: const Color(0xFF84B2E9)),
-            ],
-          ),
-        ],
+          style: _Glass.primaryButtonStyle(),
+        ),
       ),
     );
   }
@@ -655,10 +752,10 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 26,
         height: 26,
         decoration: BoxDecoration(
-          color: const Color(0xFFE4E8FE),
+          color: _Glass.blue.withOpacity(0.25),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Icon(icon, size: 16, color: const Color(0xFF84B2E9)),
+        child: Icon(icon, size: 16, color: _Glass.blueDeep),
       ),
     );
   }
@@ -680,11 +777,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 10,
-            color: Color(0xFF888888),
-            fontFamily: 'Mallanna',
-          ),
+          style: _Glass.body(size: 10, color: _Glass.textMuted),
         ),
       ],
     );
@@ -694,73 +787,66 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildLogSection() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Period
-          _sectionLabel('Period flow'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _periodBtn(0, 'Light', 0.35),
-              _periodBtn(1, 'Moderate', 0.60),
-              _periodBtn(2, 'Heavy', 0.85),
-              _periodBtn(3, 'Super\nheavy', 1.0),
-            ],
-          ),
-          const SizedBox(height: 14),
+      child: _Glass.card(
+        radius: 20,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Period
+            _sectionLabel('Period flow'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _periodBtn(0, 'Light', 0.35),
+                _periodBtn(1, 'Moderate', 0.60),
+                _periodBtn(2, 'Heavy', 0.85),
+                _periodBtn(3, 'Super\nheavy', 1.0),
+              ],
+            ),
+            const SizedBox(height: 14),
 
-          // Mood
-          _sectionLabel('Mood'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _moodBtn(0, 'Happy', _happyFace()),
-              _moodBtn(1, 'Depressed', _depressedFace()),
-              _moodBtn(2, 'Sad', _sadFace()),
-              _moodBtn(3, 'Cry', _cryFace()),
-            ],
-          ),
-          const SizedBox(height: 14),
+            // Mood
+            _sectionLabel('Mood'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _moodBtn(0, 'Happy', _happyFace()),
+                _moodBtn(1, 'Depressed', _depressedFace()),
+                _moodBtn(2, 'Sad', _sadFace()),
+                _moodBtn(3, 'Cry', _cryFace()),
+              ],
+            ),
+            const SizedBox(height: 14),
 
-          // Energy
-          _sectionLabel('Energy'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _energyBtn(0, 'Exhausted', Icons.airline_seat_flat),
-              _energyBtn(1, 'Tired', Icons.accessibility),
-              _energyBtn(2, 'Energetic', Icons.directions_walk),
-              _energyBtn(3, 'Fully\nenergetic', Icons.directions_run),
-            ],
-          ),
-          const SizedBox(height: 20),
+            // Energy
+            _sectionLabel('Energy'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _energyBtn(0, 'Exhausted', Icons.airline_seat_flat),
+                _energyBtn(1, 'Tired', Icons.accessibility),
+                _energyBtn(2, 'Energetic', Icons.directions_walk),
+                _energyBtn(3, 'Fully\nenergetic', Icons.directions_run),
+              ],
+            ),
+            const SizedBox(height: 20),
 
-          // Save
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _handleSave,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF84B2E9),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Mallanna',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+            // Save
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _handleSave,
+                style: _Glass.primaryButtonStyle(),
+                child: Text(
+                  'Save',
+                  style: _Glass.heading(size: 16, weight: FontWeight.w600, color: Colors.white),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -768,12 +854,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _sectionLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
-        fontFamily: 'Mallanna',
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: context.textSecondary,
-      ),
+      style: _Glass.body(size: 13, weight: FontWeight.w700, color: _Glass.textMuted),
     );
   }
 
@@ -786,10 +867,10 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFE4E8FE) : context.cardColor,
+            color: isSelected ? _Glass.blue.withOpacity(0.25) : Colors.white.withOpacity(0.4),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFF84B2E9) : context.dividerColor,
+              color: isSelected ? _Glass.blueDeep : Colors.white.withOpacity(0.6),
               width: isSelected ? 1.5 : 0.5,
             ),
           ),
@@ -797,19 +878,16 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(
                 Icons.water_drop,
-                color: const Color(0xFF84B2E9).withOpacity(opacity),
+                color: _Glass.blueDeep.withOpacity(opacity),
                 size: 26,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'Mallanna',
-                  color: isSelected
-                      ? const Color(0xFF185FA5)
-                      : const Color(0xFF555555),
+                style: _Glass.body(
+                  size: 9,
+                  color: isSelected ? _Glass.blueDeep : _Glass.textMuted,
                 ),
               ),
             ],
@@ -828,12 +906,10 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFF5EAF7) : Colors.white,
+            color: isSelected ? _Glass.purple.withOpacity(0.25) : Colors.white.withOpacity(0.4),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected
-                  ? const Color(0xFFBC6B9C)
-                  : const Color(0xFFE0E4F0),
+              color: isSelected ? _Glass.purpleDeep : Colors.white.withOpacity(0.6),
               width: isSelected ? 1.5 : 0.5,
             ),
           ),
@@ -844,12 +920,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'Mallanna',
-                  color: isSelected
-                      ? const Color(0xFF72243E)
-                      : const Color(0xFF555555),
+                style: _Glass.body(
+                  size: 9,
+                  color: isSelected ? _Glass.purpleDeep : _Glass.textMuted,
                 ),
               ),
             ],
@@ -868,12 +941,10 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFE4E8FE) : Colors.white,
+            color: isSelected ? _Glass.blue.withOpacity(0.25) : Colors.white.withOpacity(0.4),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected
-                  ? const Color(0xFF84B2E9)
-                  : const Color(0xFFE0E4F0),
+              color: isSelected ? _Glass.blueDeep : Colors.white.withOpacity(0.6),
               width: isSelected ? 1.5 : 0.5,
             ),
           ),
@@ -881,19 +952,16 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(
                 icon,
-                color: const Color(0xFF84B2E9),
+                color: _Glass.blueDeep,
                 size: 26,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'Mallanna',
-                  color: isSelected
-                      ? const Color(0xFF185FA5)
-                      : const Color(0xFF555555),
+                style: _Glass.body(
+                  size: 9,
+                  color: isSelected ? _Glass.blueDeep : _Glass.textMuted,
                 ),
               ),
             ],
@@ -919,126 +987,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Bottom Nav ────────────────────────────────────────────────────────────
-  Widget _buildBottomNav() {
-    return Container(
-      color: context.cardColor,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(0, Icons.calendar_month_outlined, 'Cycle'),
-          _navItem(1, Icons.book_outlined, 'Diary'),
-          _navItem(2, Icons.sentiment_satisfied_outlined, 'Mood'),
-          GestureDetector(
-            onTap: _showAddPeriodSheet,
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE96A8F),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x33E96A8F),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 26),
-            ),
-          ),
-          _navItem(3, Icons.medical_services_outlined, 'Check-up'),
-          _navItem(4, Icons.menu_book_outlined, 'Learn'),
-          _navItem(5, Icons.self_improvement_outlined, 'Lifestyle'),
-        ],
-      ),
-    );
-  }
-
-  void _onNavTap(int index) {
-    switch (index) {
-      case 1:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const DiaryScreen()));
-        break;
-      case 2:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => MoodMonitoringScreen(
-              cycleEntries: _cycleEntries.map((date, entry) => MapEntry(
-                date,
-                CycleEntry(
-                  flow: entry.flow,
-                  energy: entry.energy,
-                  mood: 'Happy',
-                ),
-              )),
-            )));
-        break;
-      case 3:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const CheckupScreen()));
-        break;
-      case 4:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const EducationalScreen()));
-        break;
-      case 5:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const LifestyleScreen()));
-        break;
-      default:
-        setState(() => _selectedNav = index);
-    }
-  }
-
-  Widget _navItem(int index, IconData icon, String label) {
-    final isActive = _selectedNav == index;
-    return GestureDetector(
-      onTap: () => _onNavTap(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 22,
-            color: isActive
-                ? const Color(0xFF84B2E9)
-                : const Color(0xFFAAAAAA),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontFamily: 'Mallanna',
-              color: isActive
-                  ? const Color(0xFF84B2E9)
-                  : const Color(0xFFAAAAAA),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Helpers ─────────────────────────────────────────────────────────────────
   Color _flowColor(String f) {
     switch (f) {
-      case 'Light':  return const Color(0xFF84B2E9);
-      case 'Moderate': return const Color(0xFFE96A8F);
-      case 'Heavy':  return const Color(0xFFBC6B9C);
-      default:       return const Color(0xFF993556);
+      case 'Light':  return _Glass.blueDeep;
+      case 'Moderate': return _Glass.pinkDeep;
+      case 'Heavy':  return _Glass.purpleDeep;
+      default:       return const Color(0xFF8A2E4E);
     }
   }
 
   Color _energyColor(String e) {
     switch (e) {
-      case 'Exhausted':     return const Color(0xFFE96A8F);
-      case 'Tired':         return const Color(0xFFBC6B9C);
-      case 'Energetic':     return const Color(0xFF84B2E9);
-      default:              return const Color(0xFF4CAF7D);
+      case 'Exhausted':     return _Glass.pinkDeep;
+      case 'Tired':         return _Glass.purpleDeep;
+      case 'Energetic':     return _Glass.blueDeep;
+      default:              return const Color(0xFF3BAF7E);
     }
   }
 
@@ -1106,10 +1070,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text(saved
                     ? 'Cycle entry saved!'
-                    : 'Could not save — check your connection.'),
-                backgroundColor: saved
-                    ? const Color(0xFFE96A8F)
-                    : const Color(0xFFE24B4A),
+                    : 'Could not save — check your connection.',
+                    style: _Glass.body(color: Colors.white)),
+                backgroundColor: saved ? _Glass.pinkDeep : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1170,10 +1133,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text(saved
                     ? 'Cycle entry saved!'
-                    : 'Could not save — check your connection.'),
-                backgroundColor: saved
-                    ? const Color(0xFFE96A8F)
-                    : const Color(0xFFE24B4A),
+                    : 'Could not save — check your connection.',
+                    style: _Glass.body(color: Colors.white)),
+                backgroundColor: saved ? _Glass.pinkDeep : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1235,10 +1197,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text(saved
                     ? 'Cycle entry updated!'
-                    : 'Could not update — check your connection.'),
-                backgroundColor: saved
-                    ? const Color(0xFF84B2E9)
-                    : const Color(0xFFE24B4A),
+                    : 'Could not update — check your connection.',
+                    style: _Glass.body(color: Colors.white)),
+                backgroundColor: saved ? _Glass.blueDeep : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -1264,21 +1225,18 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (dCtx) => AlertDialog(
+        backgroundColor: Colors.white.withOpacity(0.92),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Entry',
-            style: TextStyle(
-                fontFamily: 'Mallanna', fontWeight: FontWeight.w700)),
+        title: Text('Delete Entry',
+            style: _Glass.heading(size: 17, weight: FontWeight.w700)),
         content: Text(
           'Delete the cycle entry for $label? This cannot be undone.',
-          style: const TextStyle(
-              fontFamily: 'Mallanna', color: Color(0xFF666666)),
+          style: _Glass.body(size: 14, color: _Glass.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dCtx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    fontFamily: 'Mallanna', color: Color(0xFF888888))),
+            child: Text('Cancel', style: _Glass.body(color: _Glass.textMuted)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -1287,24 +1245,22 @@ class _HomeScreenState extends State<HomeScreen> {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text(deleted
                     ? 'Cycle entry deleted.'
-                    : 'Could not delete — check your connection.'),
-                backgroundColor: deleted
-                    ? const Color(0xFFE96A8F)
-                    : const Color(0xFFE24B4A),
+                    : 'Could not delete — check your connection.',
+                    style: _Glass.body(color: Colors.white)),
+                backgroundColor: deleted ? _Glass.pinkDeep : const Color(0xFFE24B4A),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ));
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE96A8F),
+              backgroundColor: _Glass.pinkDeep,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
-            child: const Text('Delete',
-                style: TextStyle(fontFamily: 'Mallanna')),
+            child: Text('Delete', style: _Glass.body(color: Colors.white)),
           ),
         ],
       ),
@@ -1340,7 +1296,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: context.cardColor,
+        color: Colors.white.withOpacity(0.96),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding:
@@ -1355,7 +1311,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 width: 36, height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDDDDDD),
+                  color: _Glass.textHint.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1367,20 +1323,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEEF3),
+                    color: _Glass.pink.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(titleIcon,
-                      color: const Color(0xFFE96A8F), size: 18),
+                  child: Icon(titleIcon, color: _Glass.pinkDeep, size: 18),
                 ),
                 const SizedBox(width: 10),
-                Text(title,
-                    style: const TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF333333),
-                    )),
+                Text(title, style: _Glass.heading(size: 17, weight: FontWeight.w700)),
                 const Spacer(),
                 if (onDelete != null)
                   GestureDetector(
@@ -1389,21 +1338,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFEEF3),
+                        color: _Glass.pink.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.delete_outline,
-                              color: Color(0xFFE96A8F), size: 15),
-                          SizedBox(width: 4),
+                          Icon(Icons.delete_outline, color: _Glass.pinkDeep, size: 15),
+                          const SizedBox(width: 4),
                           Text('Delete',
-                              style: TextStyle(
-                                fontFamily: 'Mallanna',
-                                fontSize: 12,
-                                color: Color(0xFFE96A8F),
-                                fontWeight: FontWeight.w600,
-                              )),
+                              style: _Glass.body(
+                                  size: 12, weight: FontWeight.w600, color: _Glass.pinkDeep)),
                         ],
                       ),
                     ),
@@ -1418,23 +1362,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFEEF3),
+                  color: _Glass.pink.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE96A8F)),
+                  border: Border.all(color: _Glass.pinkDeep),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.calendar_today,
-                        size: 13, color: Color(0xFFE96A8F)),
+                    Icon(Icons.calendar_today, size: 13, color: _Glass.pinkDeep),
                     const SizedBox(width: 6),
                     Text(fixedDayLabel,
-                        style: const TextStyle(
-                          fontFamily: 'Mallanna',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFE96A8F),
-                        )),
+                        style: _Glass.body(
+                            size: 13, weight: FontWeight.w600, color: _Glass.pinkDeep)),
                   ],
                 ),
               ),
@@ -1445,13 +1384,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: pickedDay != null
-                      ? const Color(0xFFFFEEF3)
-                      : const Color(0xFFF5F5F5),
+                      ? _Glass.pink.withOpacity(0.18)
+                      : _Glass.pageBackground,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: pickedDay != null
-                        ? const Color(0xFFE96A8F)
-                        : const Color(0xFFEEEEEE),
+                    color: pickedDay != null ? _Glass.pinkDeep : _Glass.textHint.withOpacity(0.3),
                   ),
                 ),
                 child: Row(
@@ -1459,21 +1396,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Icon(Icons.water_drop,
                         size: 13,
-                        color: pickedDay != null
-                            ? const Color(0xFFE96A8F)
-                            : const Color(0xFFBBBBBB)),
+                        color: pickedDay != null ? _Glass.pinkDeep : _Glass.textHint),
                     const SizedBox(width: 6),
                     Text(
                       pickedDay != null
                           ? '${monthNames[pickedDay!.month - 1]} ${pickedDay!.day}  •  tap again to change'
                           : 'Tap a day to select',
-                      style: TextStyle(
-                        fontFamily: 'Mallanna',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: pickedDay != null
-                            ? const Color(0xFFE96A8F)
-                            : const Color(0xFFBBBBBB),
+                      style: _Glass.body(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: pickedDay != null ? _Glass.pinkDeep : _Glass.textHint,
                       ),
                     ),
                   ],
@@ -1484,7 +1416,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: context.bgColor,
+                  color: _Glass.pageBackground,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -1497,32 +1429,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Container(
                             width: 28, height: 28,
                             decoration: BoxDecoration(
-                              color: context.cardColor,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.chevron_left,
-                                size: 18, color: Color(0xFF84B2E9)),
+                            child: Icon(Icons.chevron_left, size: 18, color: _Glass.blueDeep),
                           ),
                         ),
                         Text(
                           '${monthNames[sheetMonth.month - 1]} ${sheetMonth.year}',
-                          style: TextStyle(
-                            fontFamily: 'Mallanna',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: context.textPrimary,
-                          ),
+                          style: _Glass.body(size: 14, weight: FontWeight.w700),
                         ),
                         GestureDetector(
                           onTap: onNextMonth,
                           child: Container(
                             width: 28, height: 28,
                             decoration: BoxDecoration(
-                              color: context.cardColor,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.chevron_right,
-                                size: 18, color: Color(0xFF84B2E9)),
+                            child: Icon(Icons.chevron_right, size: 18, color: _Glass.blueDeep),
                           ),
                         ),
                       ],
@@ -1533,11 +1458,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           .map((d) => Expanded(
                                 child: Center(
                                   child: Text(d,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFFAAAAAA),
-                                        fontWeight: FontWeight.w600,
-                                      )),
+                                      style: _Glass.body(
+                                          size: 10, weight: FontWeight.w600, color: _Glass.textHint)),
                                 ),
                               ))
                           .toList(),
@@ -1569,17 +1491,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         Color bg;
                         Color txt;
                         if (isPicked) {
-                          bg = const Color(0xFFE96A8F);
+                          bg = _Glass.pinkDeep;
                           txt = Colors.white;
                         } else if (isLogged) {
-                          bg = const Color(0xFFFFEEF3);
-                          txt = const Color(0xFFE96A8F);
+                          bg = _Glass.pink.withOpacity(0.2);
+                          txt = _Glass.pinkDeep;
                         } else if (isToday) {
-                          bg = const Color(0xFF84B2E9).withOpacity(0.2);
-                          txt = const Color(0xFF84B2E9);
+                          bg = _Glass.blueDeep.withOpacity(0.2);
+                          txt = _Glass.blueDeep;
                         } else {
                           bg = Colors.transparent;
-                          txt = context.textPrimary;
+                          txt = _Glass.textDark;
                         }
 
                         return GestureDetector(
@@ -1591,11 +1513,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: bg, shape: BoxShape.circle),
                             alignment: Alignment.center,
                             child: Text('$day',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isPicked
-                                      ? FontWeight.w700
-                                      : FontWeight.normal,
+                                style: _Glass.body(
+                                  size: 11,
+                                  weight: isPicked ? FontWeight.w700 : FontWeight.normal,
                                   color: txt,
                                 )),
                           ),
@@ -1621,12 +1541,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: sel
-                            ? fc.withOpacity(0.12)
-                            : const Color(0xFFF5F5F5),
+                        color: sel ? fc.withOpacity(0.15) : _Glass.pageBackground,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: sel ? fc : const Color(0xFFEEEEEE),
+                          color: sel ? fc : _Glass.textHint.withOpacity(0.25),
                           width: sel ? 1.5 : 0.5,
                         ),
                       ),
@@ -1636,12 +1554,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 3),
                           Text(f,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Mallanna',
-                                fontSize: 9,
-                                fontWeight: sel
-                                    ? FontWeight.w700
-                                    : FontWeight.normal,
+                              style: _Glass.body(
+                                size: 9,
+                                weight: sel ? FontWeight.w700 : FontWeight.normal,
                                 color: fc,
                               )),
                         ],
@@ -1666,12 +1581,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: sel
-                            ? ec.withOpacity(0.12)
-                            : const Color(0xFFF5F5F5),
+                        color: sel ? ec.withOpacity(0.15) : _Glass.pageBackground,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: sel ? ec : const Color(0xFFEEEEEE),
+                          color: sel ? ec : _Glass.textHint.withOpacity(0.25),
                           width: sel ? 1.5 : 0.5,
                         ),
                       ),
@@ -1681,12 +1594,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 3),
                           Text(e,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Mallanna',
-                                fontSize: 9,
-                                fontWeight: sel
-                                    ? FontWeight.w700
-                                    : FontWeight.normal,
+                              style: _Glass.body(
+                                size: 9,
+                                weight: sel ? FontWeight.w700 : FontWeight.normal,
                                 color: ec,
                               )),
                         ],
@@ -1704,20 +1614,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ElevatedButton(
                 onPressed: canSave ? onSave : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE96A8F),
+                  backgroundColor: _Glass.pinkDeep,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      const Color(0xFFE96A8F).withOpacity(0.4),
+                  disabledBackgroundColor: _Glass.pinkDeep.withOpacity(0.4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
                 child: Text(saveLabel,
-                    style: const TextStyle(
-                      fontFamily: 'Mallanna',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    )),
+                    style: _Glass.heading(size: 16, weight: FontWeight.w600, color: Colors.white)),
               ),
             ),
           ],
@@ -1728,12 +1633,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _sheetSectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
-          fontFamily: 'Mallanna',
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF888888),
-        ),
+        style: _Glass.body(size: 12, weight: FontWeight.w600, color: _Glass.textMuted),
       );
 
   // ── Save Handler ──────────────────────────────────────────────────────────
@@ -1767,9 +1667,7 @@ class _HomeScreenState extends State<HomeScreen> {
         content: Text(saved
             ? 'Cycle log saved!'
             : 'Could not save — check your connection.'),
-        backgroundColor: saved
-            ? const Color(0xFF84B2E9)
-            : const Color(0xFFE24B4A),
+        backgroundColor: saved ? _Glass.blueDeep : const Color(0xFFE24B4A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -1799,14 +1697,14 @@ class _PhaseRingPainter extends CustomPainter {
     const strokeWidth = 13.0;
 
     final trackPaint = Paint()
-      ..color = const Color(0xFFE4E8FE)
+      ..color = _Glass.blue.withOpacity(0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, trackPaint);
 
     final bluePaint = Paint()
-      ..color = const Color(0xFF84B2E9)
+      ..color = _Glass.blueDeep
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -1821,7 +1719,7 @@ class _PhaseRingPainter extends CustomPainter {
     );
 
     final pinkPaint = Paint()
-      ..color = const Color(0xFFE96A8F)
+      ..color = _Glass.pinkDeep
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -1857,7 +1755,7 @@ class _FacePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFBC6B9C)
+      ..color = _Glass.purpleDeep
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
@@ -1869,12 +1767,12 @@ class _FacePainter extends CustomPainter {
     canvas.drawCircle(Offset(cx, cy), r, paint);
 
     final eyePaint = Paint()
-      ..color = const Color(0xFFBC6B9C)
+      ..color = _Glass.purpleDeep
       ..style = PaintingStyle.fill;
 
     if (mouth == 'sad') {
       final xPaint = Paint()
-        ..color = const Color(0xFFBC6B9C)
+        ..color = _Glass.purpleDeep
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(
@@ -1905,7 +1803,7 @@ class _FacePainter extends CustomPainter {
 
     if (tears) {
       final tearPaint = Paint()
-        ..color = const Color(0xFF84B2E9)
+        ..color = _Glass.blueDeep
         ..style = PaintingStyle.fill;
       canvas.drawOval(
           Rect.fromCenter(
@@ -1921,4 +1819,150 @@ class _FacePainter extends CustomPainter {
   @override
   bool shouldRepaint(_FacePainter oldDelegate) =>
       oldDelegate.mouth != mouth || oldDelegate.tears != tears;
+}
+
+// ─── Glass design tokens ───────────────────────────────────────────────────────
+// Shared frosted-glass / ambient-blob design system reused across every
+// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
+
+class _Glass {
+  static const Color pageBackground = Color(0xFFF3F1FB);
+
+  static const Color blue = Color(0xFF9FC8FF);
+  static const Color blueDeep = Color(0xFF5B93E0);
+  static const Color pink = Color(0xFFFFA7CE);
+  static const Color pinkDeep = Color(0xFFE0679A);
+  static const Color purple = Color(0xFFC6ACFF);
+  static const Color purpleDeep = Color(0xFF9A78E0);
+
+  static const Color textDark = Color(0xFF2B2638);
+  static const Color textMuted = Color(0xFF6E677D);
+  static const Color textHint = Color(0xFFA6A0B4);
+
+  static TextStyle heading({
+    double size = 22,
+    FontWeight weight = FontWeight.w700,
+    Color color = textDark,
+  }) =>
+      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
+
+  static TextStyle body({
+    double size = 14,
+    FontWeight weight = FontWeight.w500,
+    Color color = textDark,
+  }) =>
+      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
+
+  /// Frosted translucent card: blurred backdrop + soft white glass fill.
+  static Widget card({
+    required Widget child,
+    double radius = 24,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    double opacity = 0.55,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(opacity),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: purpleDeep.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  static ButtonStyle primaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: blueDeep,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: blueDeep.withOpacity(0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 0,
+    );
+  }
+}
+
+/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
+/// behind the frosted glass content. Purely decorative — no state that
+/// affects the rest of the screen.
+class _AmbientBackground extends StatefulWidget {
+  const _AmbientBackground();
+
+  @override
+  State<_AmbientBackground> createState() => _AmbientBackgroundState();
+}
+
+class _AmbientBackgroundState extends State<_AmbientBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 22),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value * 2 * math.pi;
+        return Stack(
+          children: [
+            Container(color: _Glass.pageBackground),
+            Positioned(
+              top: -60 + 24 * math.sin(t),
+              left: -70 + 20 * math.cos(t),
+              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
+            ),
+            Positioned(
+              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
+              right: -90 + 22 * math.sin(t * 0.85),
+              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
+            ),
+            Positioned(
+              bottom: -80 + 20 * math.sin(t * 1.15),
+              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
+              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _blob(double diameter, Color color) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+      child: Container(
+        width: diameter,
+        height: diameter,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
 }

@@ -1,4 +1,4 @@
-package com.example.femcycle_application
+package com.capstone.femcycleapp
 
 import io.flutter.embedding.android.FlutterActivity
 

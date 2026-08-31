@@ -1,4 +1,10 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../widgets/app_bottom_nav.dart';
+import '../widgets/coach_mark_overlay.dart';
+import '../services/tutorial_storage_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA MODELS
@@ -58,65 +64,67 @@ class PhaseData {
 // UNSPLASH IMAGE URLS
 // Format: https://images.unsplash.com/photo-{ID}?w=600&q=80&fit=crop
 // All images are free to use (Unsplash License)
+//
+// NOTE: a handful of the original IDs in this file were malformed/fake and
+// 404'd, which made those cards fall back to the broken-image placeholder.
+// Those have been swapped for reliable picsum.photos placeholders below —
+// swap them out for exact-match photos whenever convenient, they're just
+// marked so it's easy to find them again.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ignore_for_file: lines_longer_than_80_chars
 const _u = 'https://images.unsplash.com/photo-';
+const _p = 'https://picsum.photos/seed/'; // reliable placeholder fallback
 
 // Exercise images
 const _yoga         = '${_u}1506126613408-eca07ce68773?w=600&q=80&fit=crop'; // woman child's pose
 const _walking      = '${_u}1476480862126-209bfaa8edc8?w=600&q=80&fit=crop'; // woman walking outdoor
-const _breathwork   = '${_u}1544367567-0f2fcb009e0b?w=600&q=80&fit=crop'; // woman meditating seated
+const _breathwork   = '${_u}1517363898874-737b62a7db91?w=600&q=80&fit=crop'; // woman meditating/breathing
 const _stretching   = '${_u}1518611012118-696072aa579a?w=600&q=80&fit=crop'; // woman stretching floor
-const _bath         = '${_u}1507652955-f3dcef5a3be5?w=600&q=80&fit=crop'; // spa bath candles
+const _bath         = '${_u}1596182702367-05a5e080a7ac?w=600&q=80&fit=crop'; // bathtub
 const _jogging      = '${_u}1571019613454-1cb2f99b2d8b?w=600&q=80&fit=crop'; // woman jogging park
-const _weights      = '${_u}1534438327-25912/photo?w=600&q=80&fit=crop';    // fallback
-const _strength     = '${_u}1581009146145-b5ef050c2e1e?w=600&q=80&fit=crop'; // woman dumbbell
-const _hiit         = '${_u}1549060279-7e168fcee0c2?w=600&q=80&fit=crop'; // woman jumping HIIT
-const _cycling      = '${_u}1558618666-fcd25c85cd64?w=600&q=80&fit=crop'; // woman cycling outdoor
-const _swimming     = '${_u}1530549387789-4c25aced5f61?w=600&q=80&fit=crop'; // woman swimming laps
-const _heavylift    = '${_u}1517836357463-d25dfeac3438?w=600&q=80&fit=crop'; // barbell deadlift
-const _poweryoga    = '${_u}1524594152303-9fd13543fe6e?w=600&q=80&fit=crop'; // warrior yoga pose
-const _pilates      = '${_u}1518611880905-c2e31d8b9c41?w=600&q=80&fit=crop'; // pilates bridge mat
-const _restoreyoga  = '${_u}1447452001571-1ab2c9b2a2c0?w=600&q=80&fit=crop'; // restorative yoga floor
+const _strength     = '${_p}home-strength/600/400'; // home bodyweight strength (was: woman dumbbell — swapped, content is now equipment-free)
+const _hiit         = '${_u}1549060279-7e168fcee0c2?w=600&q=80&fit=crop'; // woman jumping HIIT (thumbnail overridden by stepImages)
+const _cycling      = '${_u}1543942493-94d3f7018c4b?w=600&q=80&fit=crop'; // person cycling road
+const _swimming     = '${_u}1519315901367-f34ff9154487?w=600&q=80&fit=crop'; // swimmer in pool
+const _heavylift    = '${_p}bodyweight-power/600/400'; // bodyweight power circuit (was: barbell deadlift — swapped, content is now equipment-free)
+const _poweryoga    = '${_u}1524594152303-9fd13543fe6e?w=600&q=80&fit=crop'; // warrior yoga pose (thumbnail overridden by stepImages)
+const _pilates      = '${_u}1518611880905-c2e31d8b9c41?w=600&q=80&fit=crop'; // pilates bridge mat (thumbnail overridden by stepImages)
+const _restoreyoga  = '${_u}1447452001571-1ab2c9b2a2c0?w=600&q=80&fit=crop'; // restorative yoga floor (thumbnail overridden by stepImages)
 
 // Sleep images
 const _sleep8h      = '${_u}1541781774459-bb2af2f05b55?w=600&q=80&fit=crop'; // woman sleeping peacefully
-const _sleepRoutine = '${_u}1556909114-f6e7ad7d3136?w=600&q=80&fit=crop'; // night skincare routine
-const _chamomile    = '${_u}1544787219-7f47ccb76574?w=600&q=80&fit=crop'; // chamomile tea mug
-const _noScreen     = '${_u}1502189794696-a68e8d7c8313?w=600&q=80&fit=crop'; // phone face down bedside
-const _magnesium    = '${_u}1550572017-edd951aa8f46?w=600&q=80&fit=crop'; // dark chocolate nuts bowl
+const _chamomile    = '${_u}1504382103100-db7e92322d39?w=600&q=80&fit=crop'; // herbal tea glass mug
+const _noScreen     = '${_u}1558735416-bd72f544a761?w=600&q=80&fit=crop'; // phone on bed at night
 const _coolRoom     = '${_u}1631049307264-da0ec9d70304?w=600&q=80&fit=crop'; // cool minimal bedroom
 const _journalBed   = '${_u}1455390582262-044cdead277a?w=600&q=80&fit=crop'; // journal writing bed
-const _melatonin    = '${_u}1507003211169-0a1dd7228f2d?w=600&q=80&fit=crop'; // woman window morning
-const _sleepSounds  = '${_u}1484704849700-f032d75b20e5?w=600&q=80&fit=crop'; // headphones cozy
 const _morningLight = '${_u}1506905925346-21bda4d32df4?w=600&q=80&fit=crop'; // woman morning sunlight
 
 // Nutrition images
 const _ironFoods    = '${_u}1512621776951-a57141f2eefd?w=600&q=80&fit=crop'; // spinach lentils bowl
-const _omega3       = '${_u}1467003909585-2f8a72700288?w=600&q=80&fit=crop'; // salmon avocado plate
-const _darkChoc     = '${_u}1548907994-4a5ba7ab8ddc?w=600&q=80&fit=crop'; // dark chocolate pieces
+const _omega3       = '${_p}local-fish-omega3/600/400'; // local fish omega-3 (was: salmon avocado plate — swapped, content now leads with galunggong/sardinas)
+const _darkChoc     = '${_u}1604514813549-92e26bbae4f2?w=600&q=80&fit=crop'; // dark chocolate bars
+const _magnesiumFoods = '${_p}monggo-malunggay/600/400'; // monggo & malunggay dishes (own image so it no longer shares the Dark Chocolate photo)
 const _hydration    = '${_u}1523362628745-0c100150b504?w=600&q=80&fit=crop'; // water glass lemon
-const _gingerTea    = '${_u}1563246850-7bb0f3c1f10c?w=600&q=80&fit=crop'; // ginger turmeric tea
+const _gingerTea    = '${_u}1531264071041-3a69924b182d?w=600&q=80&fit=crop'; // lemon ginger tea
 const _phaseEating  = '${_u}1490645935967-10de6ba17061?w=600&q=80&fit=crop'; // colorful healthy bowls
-const _calcium      = '${_u}1559598467-f8b76c8155d0?w=600&q=80&fit=crop'; // yogurt berries seeds
-const _protein      = '${_u}1547592166-23ac45744acd?w=600&q=80&fit=crop'; // eggs avocado breakfast
+const _calcium      = '${_u}1596151163116-98a5033814c2?w=600&q=80&fit=crop'; // glass of milk
+const _protein      = '${_u}1559332167-dd24746aa6f5?w=600&q=80&fit=crop'; // eggs and toast plate
 const _antInflam    = '${_u}1505576399279-565b52d4ac71?w=600&q=80&fit=crop'; // turmeric berries bowl
-const _complex      = '${_u}1516684732162-5f995f4b20e7?w=600&q=80&fit=crop'; // oats banana breakfast
+const _complex      = '${_u}1497888329096-51c27beff665?w=600&q=80&fit=crop'; // oatmeal bowls with fruit
 
 // Productivity images
 const _lightTask    = '${_u}1506784983877-45594efa4cbe?w=600&q=80&fit=crop'; // woman desk laptop calm
 const _organize     = '${_u}1484480974693-6ca0a78fb36b?w=600&q=80&fit=crop'; // organized planner desk
-const _deepWork     = '${_u}1434030216411-0b5816919d49?w=600&q=80&fit=crop'; // woman focused work
+const _deepWork     = '${_u}1758612214917-81d7956c09de?w=600&q=80&fit=crop'; // woman typing at desk
 const _journal      = '${_u}1455390582262-044cdead277a?w=600&q=80&fit=crop'; // journal writing pen
 const _selfCare     = '${_u}1507003211169-0a1dd7228f2d?w=600&q=80&fit=crop'; // woman window relax
-const _planNext     = '${_u}1484480974693-6ca0a78fb36b?w=600&q=80&fit=crop'; // calendar planning
 const _sayNo        = '${_u}1506905925346-21bda4d32df4?w=600&q=80&fit=crop'; // woman peaceful nature
-const _network      = '${_u}1543269865-cbf427effbad?w=600&q=80&fit=crop'; // women talking coffee
-const _present      = '${_u}1558618047-3bb6f9ec9a0f?w=600&q=80&fit=crop'; // woman presenting board
+const _network      = '${_u}1573496267526-08a69e46a409?w=600&q=80&fit=crop'; // two women talking, work
+const _present      = '${_u}1758518727888-ffa196002e59?w=600&q=80&fit=crop'; // confident businesswoman
 const _complete     = '${_u}1484480974693-6ca0a78fb36b?w=600&q=80&fit=crop'; // checklist complete
-
-// ─────────────────────────────────────────────────────────────────────────────
+const _serotoninFood = '${_u}1601316585772-ba1e6dae9cfc?w=600&q=80&fit=crop'; // salmon plate with greens
+const _highStakes    = '${_u}1758518727888-ffa196002e59?w=600&q=80&fit=crop'; // confident businesswoman// ─────────────────────────────────────────────────────────────────────────────
 // PHASE DATA
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -305,18 +313,18 @@ const List<PhaseData> kPhases = [
       ),
       LifestyleItem(
         name: 'Omega-3 Rich Meals',
-        shortDesc: 'Reduces cramps directly',
+        shortDesc: 'Reduces cramps directly — using fish already in the palengke',
         imageUrl: _omega3,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Daily',
         why: 'Omega-3 fatty acids directly compete with arachidonic acid in producing prostaglandins. More omega-3 means fewer inflammatory prostaglandins — the compounds that cause uterine contractions and cramping.',
         tip: 'Start eating omega-3 rich foods 3–4 days before your expected period — by the time menstruation begins, the anti-inflammatory effect is already building.',
         steps: [
-          'Choose your omega-3 source: salmon, sardines, mackerel, walnuts, chia seeds, or flaxseed',
-          'Aim for a fatty fish meal at least twice during your period week',
-          'Add chia seeds or ground flaxseed to your breakfast: oatmeal, yogurt, or smoothie',
-          'Keep walnuts as your snack throughout the week — most accessible plant source',
-          'If vegetarian/vegan, use algae-based omega-3 supplements — same EPA/DHA as fish',
+          'Choose your omega-3 source: galunggong, tulingan, bangus, or a can of sardinas — all budget-friendly',
+          'Aim for a fried or tinola-style fish meal at least twice during your period week',
+          'Add a spoon of ground flaxseed to oatmeal or lugaw if you have it — optional, not required',
+          'Keep roasted mani (peanuts) as your snack throughout the week — the accessible local source',
+          'If vegetarian, malunggay and monggo are good plant-based fallbacks',
           'Notice whether cramp intensity differs after 2–3 cycles of consistent intake',
         ],
       ),
@@ -436,20 +444,20 @@ const List<PhaseData> kPhases = [
         ],
       ),
       LifestyleItem(
-        name: 'Strength Training',
-        shortDesc: 'Muscles synthesize faster now',
+        name: 'Home Strength Training',
+        shortDesc: 'Muscles synthesize faster now — no gym needed',
         imageUrl: _strength,
         accentColor: Color(0xFF84B2E9),
         duration: '45–60 min',
-        why: 'Estrogen enhances muscle protein synthesis — your muscles literally grow and repair faster in the follicular phase than at any other point in your cycle. This is scientifically the most productive time to lift heavy.',
-        tip: 'Keep a lifting log and mark which sessions are in your follicular phase. Over 3–4 cycles, you will see your strongest lifts consistently clustering here.',
+        why: 'Estrogen enhances muscle protein synthesis — your muscles literally grow and repair faster in the follicular phase than at any other point in your cycle. This is scientifically the most productive time to build strength.',
+        tip: 'Keep a simple log of your reps and loads and mark which sessions are in your follicular phase. Over 3–4 cycles, you will see your strongest sessions consistently clustering here.',
         steps: [
           'Dynamic warm-up: 5 minutes of leg swings, arm circles, and hip rotations',
-          'Start with your heaviest compound lift: squats or deadlifts — 3–4 sets × 6–10 reps',
-          'Use weights that genuinely challenge you — your pain tolerance is high today',
-          'Move to secondary lifts: bench press, rows, or lunges — 3 sets each',
-          'Finish with 10 minutes of accessory work: core, glutes, or shoulders',
-          'Write down every weight used — aim to beat each number next follicular phase',
+          'Bodyweight squats or lunges — 3–4 sets × 12–15 reps',
+          'Hold a filled 6L water jug or a small rice sack in each hand for added load',
+          'Push-ups (knee or full) and doorframe or resistance-band rows — 3 sets each',
+          'Finish with 10 minutes of core work: planks, sit-ups, or leg raises',
+          'Write down your reps and loads — aim to beat them next follicular phase',
         ],
       ),
       LifestyleItem(
@@ -567,27 +575,26 @@ const List<PhaseData> kPhases = [
         ],
       ),
       LifestyleItem(
-        name: 'Fermented Foods',
-        shortDesc: 'Supports healthy estrogen metabolism',
+        name: 'Local Fermented Foods',
+        shortDesc: 'Supports healthy estrogen metabolism — from the sari-sari store',
         imageUrl: _phaseEating,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Daily',
         why: 'Estrogen is metabolized by the gut microbiome. A diverse, healthy microbiome ensures estrogen is cleared efficiently — preventing both low estrogen and estrogen dominance. Fermented foods feed beneficial gut bacteria directly.',
-        tip: 'Look for "live and active cultures" on yogurt labels, or choose refrigerated kimchi and sauerkraut — shelf-stable versions are often pasteurized and have reduced live cultures.',
+        tip: 'You don\'t need imported kimchi or kombucha for this — atchara, plain yogurt, and Yakult are sold at any sari-sari store and give the same live-culture benefit.',
         steps: [
-          'Choose your fermented food: yogurt, kefir, kimchi, sauerkraut, miso, or kombucha',
-          'Add Greek yogurt or kefir to breakfast: with oats, fruit, or seeds',
-          'Include kimchi or sauerkraut as a side with lunch or dinner',
-          'Use miso in soups or dressings for an easy umami and probiotic boost',
-          'Pair fermented foods with prebiotic fiber (onion, garlic, leeks) to feed the bacteria',
-          'Rotate between different fermented foods throughout the week for microbial diversity',
+          'Choose your fermented food: atchara (pickled papaya), plain yogurt, or a bottle of Yakult',
+          'Add atchara as a side to fried or grilled dishes at lunch or dinner',
+          'Stir plain yogurt into rice porridge or eat it with banana for breakfast',
+          'Use patis or bagoong in small amounts for an easy umami and fermented boost',
+          'Pair fermented foods with onion or garlic-heavy ulam to feed the beneficial bacteria',
+          'Rotate between atchara, yogurt, and Yakult through the week for variety',
         ],
       ),
       LifestyleItem(
         name: 'Complex Carbohydrates',
         shortDesc: 'Sustained energy for peak training',
-        imageUrl: _complex,
-        accentColor: Color(0xFF3BAF7E),
+imageUrl: _serotoninFood,        accentColor: Color(0xFF3BAF7E),
         duration: 'Around workouts',
         why: 'Complex carbohydrates provide sustained glucose for higher-intensity exercise that is optimal in the follicular phase, without the blood sugar spikes of refined carbohydrates. They also support serotonin production.',
         tip: 'Oats are one of the most researched foods for sustained energy. Overnight oats prepared the night before make the perfect pre-workout breakfast requiring zero morning effort.',
@@ -605,8 +612,7 @@ const List<PhaseData> kPhases = [
       LifestyleItem(
         name: 'Deep Work Sessions',
         shortDesc: 'Your cognitive peak — protect it',
-        imageUrl: _deepWork,
-        accentColor: Color(0xFF84B2E9),
+imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         duration: '2–4 hours daily',
         why: 'Working memory, processing speed, verbal fluency, and problem-solving ability are all measurably enhanced by estrogen in the follicular phase. Research confirms women perform better on cognitive tests during this phase.',
         tip: 'Schedule all meetings in the afternoon of follicular phase days. Keep mornings completely clear for focused work. This single change transforms weekly output.',
@@ -665,19 +671,19 @@ const List<PhaseData> kPhases = [
     subtitle: 'Days 12–17 · Peak — perform & lead',
     exercise: [
       LifestyleItem(
-        name: 'Heavy Lifting',
-        shortDesc: 'Your absolute peak strength window',
+        name: 'Bodyweight Power Circuit',
+        shortDesc: 'Your absolute peak strength window — no barbell needed',
         imageUrl: _heavylift,
         accentColor: Color(0xFF6BB89E),
         duration: '60–75 min',
-        why: 'Estrogen is at its absolute peak around ovulation, maximizing muscle strength, power output, and pain tolerance simultaneously. This is the single best time in your cycle to attempt maximum effort lifts or personal records.',
-        tip: 'If you track your lifts, your heaviest recorded weights will almost always cluster in the ovulation and late follicular phases. This pattern repeats every single cycle.',
+        why: 'Estrogen is at its absolute peak around ovulation, maximizing muscle strength, power output, and pain tolerance simultaneously. This is the single best time in your cycle to push your hardest effort yet.',
+        tip: 'Keep a simple log of your reps and loads — your best numbers will almost always cluster in the ovulation and late follicular phases. This pattern repeats every single cycle.',
         steps: [
           'Warm up thoroughly: 10 minutes of dynamic movement',
-          'Start with your main compound lift: squats or deadlifts — attempt a heavier weight',
-          'Complete 3–5 sets of 3–5 reps at your working weight',
-          'If feeling strong after working sets, add weight and attempt a personal record',
-          'Finish with accessory work: 2–3 exercises, 3 sets each',
+          'Jump squats or pistol-squat progressions — 4–5 sets of max clean reps',
+          'Push-ups (add a backpack with books for extra load) — 4 sets to near-failure',
+          'If feeling strong, add more reps or a heavier household object than last time',
+          'Finish with resistance-band rows and standing lunges — 3 sets each',
           'Cool down fully — stretch every major muscle group you worked',
         ],
       ),
@@ -796,7 +802,7 @@ const List<PhaseData> kPhases = [
       ),
       LifestyleItem(
         name: 'Anti-inflammatory Foods',
-        shortDesc: 'Speed recovery between peak sessions',
+        shortDesc: 'Speed recovery between peak sessions — turmeric, ginger, and fish already in your kitchen',
         imageUrl: _antInflam,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
@@ -804,11 +810,11 @@ const List<PhaseData> kPhases = [
         tip: 'Curcumin (active compound in turmeric) has anti-inflammatory potency comparable to some NSAIDs. Always take with black pepper and fat — without them, most of it passes through unused.',
         steps: [
           'Add 1 tsp turmeric + pinch black pepper to your morning smoothie or eggs',
-          'Make ginger tea: fresh 2cm ginger, steeped 10 minutes, with honey and black pepper',
-          'Include fatty fish (salmon, sardines, mackerel) at least twice this week',
-          'Add berries to every breakfast — one of the most potent antioxidant sources',
-          'Use extra-virgin olive oil as your primary cooking oil and dressing',
-          'Snack on walnuts: the best plant-based omega-3 source available',
+          'Make ginger (luya) tea: fresh ginger steeped 10 minutes, with honey and black pepper',
+          'Include galunggong, tulingan, or canned sardines at least twice this week',
+          'Add ripe mangga or saging to breakfast — a strong, affordable antioxidant source',
+          'Cook with coconut oil or a light vegetable oil instead of pricier imported oils',
+          'Snack on roasted mani — the accessible local source of healthy fats',
         ],
       ),
       LifestyleItem(
@@ -1016,36 +1022,36 @@ const List<PhaseData> kPhases = [
     nutrition: [
       LifestyleItem(
         name: 'Magnesium-Rich Foods',
-        shortDesc: 'The most important PMS mineral',
-        imageUrl: _darkChoc,
+        shortDesc: 'The most important PMS mineral — monggo, malunggay, and tablea already in the kitchen',
+        imageUrl: _magnesiumFoods,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
         why: 'Magnesium is depleted by progesterone in the luteal phase. Low magnesium directly contributes to PMS symptoms including anxiety, irritability, insomnia, bloating, and cramps. Consistently increasing intake significantly reduces PMS severity.',
-        tip: 'Cooking spinach dramatically increases the bioavailable magnesium per serving — a cup of cooked spinach provides 157mg vs only 24mg raw. The volume reduction concentrates the minerals.',
+        tip: 'You don\'t need pricey seeds or supplements for this — monggo, malunggay, and kangkong are cheap, everyday ingredients that deliver the same magnesium.',
         steps: [
-          'Morning: 2 tablespoons of pumpkin seeds in oatmeal (approx 150mg magnesium)',
-          'Add a banana alongside (34mg) — a meaningful portion of your daily requirement before 9am',
-          'Lunch: large spinach salad — cooked spinach is far more potent than raw',
-          'Afternoon snack: 30g of 70%+ dark chocolate (64mg magnesium + mood boost)',
-          'Dinner: black beans or lentils as your protein (60mg magnesium per serving)',
-          'Before bed: 300mg magnesium glycinate supplement for sleep and PMS relief',
+          'Morning: banana in oatmeal or lugaw — a meaningful portion of your daily requirement before 9am',
+          'Lunch: monggo with malunggay leaves — a classic, cheap magnesium-rich ulam',
+          'Add sautéed kangkong as your vegetable side — more potent than raw spinach',
+          'Afternoon snack: a small piece of tablea or 70%+ dark chocolate (mood boost too)',
+          'Dinner: monggo or black beans as your protein again if needed',
+          'If cramps or PMS are severe, ask a doctor before adding any supplement',
         ],
       ),
       LifestyleItem(
         name: 'Serotonin-Supporting Foods',
-        shortDesc: 'Fight the PMS mood dip naturally',
+        shortDesc: 'Fight the PMS mood dip naturally — chicken, tilapia, and kamote instead',
         imageUrl: _complex,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
         why: 'Serotonin drops as estrogen falls in the late luteal phase — this is the direct cause of PMS mood symptoms. Tryptophan from food, combined with complex carbohydrates, can replenish serotonin production naturally.',
         tip: 'Your carbohydrate cravings in PMS week are literally your brain requesting the serotonin precursor transport system. Satisfy them with complex carbs, not refined sugar.',
         steps: [
-          'Breakfast: eggs or Greek yogurt (tryptophan) on wholegrain toast (complex carb)',
+          'Breakfast: eggs or plain yogurt on rice or wholegrain toast (complex carb)',
           'The carbohydrate is required: it transports tryptophan across the blood-brain barrier',
-          'Lunch: turkey or chicken with brown rice and green vegetables',
-          'Afternoon: full-fat yogurt with a banana — tryptophan + carb combination',
-          'Dinner: salmon or tofu with sweet potato and leafy greens',
-          'Avoid high-sugar foods that spike and crash blood sugar — they amplify PMS mood swings',
+          'Lunch: chicken or tilapia with rice and a green vegetable side',
+          'Afternoon: plain yogurt with a banana — tryptophan + carb combination',
+          'Dinner: bangus or tofu with kamote (sweet potato) and leafy greens',
+          'Avoid high-sugar foods that spike and crash blood sugar and worsen PMS mood swings',
         ],
       ),
       LifestyleItem(
@@ -1154,6 +1160,46 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
   int _selectedPhase = 0;
   int _selectedCategory = 0;
 
+  // ── Coach-mark tour targets ──
+  final GlobalKey _phaseSelectorKey = GlobalKey();
+  final GlobalKey _categoryTabsKey = GlobalKey();
+  final GlobalKey _itemListKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeShowCoachTour();
+  }
+
+  Future<void> _maybeShowCoachTour() async {
+    final seen = await TutorialStorageService.hasSeenTour(TutorialStorageService.lifestyle);
+    if (seen || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startCoachTour());
+  }
+
+  void _startCoachTour() {
+    showCoachMarkTour(
+      context: context,
+      steps: [
+        CoachMarkStep(
+          targetKey: _phaseSelectorKey,
+          title: 'Pick a cycle phase',
+          description: 'Content here changes based on which phase you\'re viewing — start with the one you\'re in today.',
+        ),
+        CoachMarkStep(
+          targetKey: _categoryTabsKey,
+          title: 'Browse by category',
+          description: 'Switch between Exercise, Sleep, Nutrition, and Mindset tips for the selected phase.',
+        ),
+        CoachMarkStep(
+          targetKey: _itemListKey,
+          title: 'Tap for details',
+          description: 'Tap any card below to open the full tutorial or guide for that item.',
+        ),
+      ],
+    ).then((_) => TutorialStorageService.markTourSeen(TutorialStorageService.lifestyle));
+  }
+
   static const List<String> _categoryNames = [
     'Exercise', 'Sleep', 'Nutrition', 'Mindset',
   ];
@@ -1188,136 +1234,154 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2EEE9),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            _buildPhaseSelector(),
-            _buildCategoryTabs(),
-            Expanded(child: _buildItemList()),
-          ],
-        ),
+      backgroundColor: _Glass.pageBackground,
+      bottomNavigationBar: const AppBottomNav(currentIndex: 5),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _AmbientBackground()),
+          SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(),
+                KeyedSubtree(key: _phaseSelectorKey, child: _buildPhaseSelector()),
+                KeyedSubtree(key: _categoryTabsKey, child: _buildCategoryTabs()),
+                Expanded(child: KeyedSubtree(key: _itemListKey, child: _buildItemList())),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // ── Top bar ───────────────────────────────────────────────────────────────
 
-  Widget _buildTopBar() => Container(
-    color: _phase.color,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Row(children: [
-      GestureDetector(
-        onTap: () => Navigator.pop(context),
-        child: Container(
-          width: 32, height: 32,
-          decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.25),
-              shape: BoxShape.circle),
-          child: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
+  Widget _buildTopBar() => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+    child: _Glass.card(
+      radius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(children: [
+        Expanded(
+          child: Text('Lifestyle & Productivity',
+              style: _Glass.heading(size: 16, weight: FontWeight.w600)),
         ),
-      ),
-      const SizedBox(width: 10),
-      const Expanded(
-        child: Text('Lifestyle & Productivity',
-            style: TextStyle(color: Colors.white, fontFamily: 'Mallanna',
-                fontSize: 17, fontWeight: FontWeight.w600)),
-      ),
-    ]),
+        GestureDetector(
+          onTap: _startCoachTour,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: _Glass.blue.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
+          ),
+        ),
+      ]),
+    ),
   );
 
   // ── Phase selector ────────────────────────────────────────────────────────
 
-  Widget _buildPhaseSelector() => Container(
-    color: Colors.white,
-    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Your current phase',
-            style: TextStyle(fontFamily: 'Mallanna', fontSize: 11,
-                color: Colors.grey.shade500)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 38,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: kPhases.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 7),
-            itemBuilder: (_, i) {
-              final p = kPhases[i];
-              final isOn = _selectedPhase == i;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedPhase = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isOn ? p.color : const Color(0xFFF0EEE9),
-                    borderRadius: BorderRadius.circular(30),
+  Widget _buildPhaseSelector() => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+    child: _Glass.card(
+      radius: 18,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Your current phase',
+              style: _Glass.body(size: 11, color: _Glass.textHint)),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: kPhases.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 7),
+              itemBuilder: (_, i) {
+                final p = kPhases[i];
+                final isOn = _selectedPhase == i;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedPhase = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isOn ? p.color : Colors.white.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                          color: isOn ? p.color : Colors.white.withOpacity(0.7)),
+                    ),
+                    child: Row(children: [
+                      Text(p.emoji,
+                          style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 5),
+                      Text(p.name,
+                          style: _Glass.body(
+                            size: 12,
+                            weight: FontWeight.w600,
+                            color: isOn ? Colors.white : _Glass.textMuted,
+                          )),
+                    ]),
                   ),
-                  child: Row(children: [
-                    Text(p.emoji,
-                        style: const TextStyle(fontSize: 14)),
-                    const SizedBox(width: 5),
-                    Text(p.name,
-                        style: TextStyle(
-                          fontFamily: 'Mallanna', fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isOn ? Colors.white : Colors.grey.shade600,
-                        )),
-                  ]),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(_phase.subtitle,
-            style: TextStyle(fontFamily: 'Mallanna', fontSize: 11,
-                color: _phase.color, fontWeight: FontWeight.w600)),
-      ],
+          const SizedBox(height: 6),
+          Text(_phase.subtitle,
+              style: _Glass.body(
+                  size: 11, weight: FontWeight.w600, color: _phase.color)),
+        ],
+      ),
     ),
   );
 
   // ── Category tabs ─────────────────────────────────────────────────────────
 
-  Widget _buildCategoryTabs() => Container(
-    color: Colors.white,
-    child: Row(children: List.generate(_categoryNames.length, (i) {
-      final isOn = _selectedCategory == i;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() => _selectedCategory = i),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isOn ? _phase.color : Colors.transparent,
-                  width: 2,
+  Widget _buildCategoryTabs() => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+    child: _Glass.card(
+      radius: 18,
+      padding: EdgeInsets.zero,
+      child: Row(children: List.generate(_categoryNames.length, (i) {
+        final isOn = _selectedCategory == i;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedCategory = i),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: isOn ? _phase.color : Colors.transparent,
+                    width: 2,
+                  ),
                 ),
               ),
-            ),
-            child: Column(
-              children: [
-                Icon(_categoryIcons[i],
-                    size: 18,
-                    color: isOn ? _phase.color : Colors.grey.shade400),
-                const SizedBox(height: 3),
-                Text(_categoryNames[i],
-                    style: TextStyle(
-                      fontFamily: 'Mallanna', fontSize: 10,
-                      fontWeight: isOn ? FontWeight.w600 : FontWeight.normal,
-                      color: isOn ? _phase.color : Colors.grey.shade500,
-                    )),
-              ],
+              child: Column(
+                children: [
+                  Icon(_categoryIcons[i],
+                      size: 18,
+                      color: isOn ? _phase.color : _Glass.textHint),
+                  const SizedBox(height: 3),
+                  Text(_categoryNames[i],
+                      style: _Glass.body(
+                        size: 10,
+                        weight: isOn ? FontWeight.w600 : FontWeight.normal,
+                        color: isOn ? _phase.color : _Glass.textMuted,
+                      )),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    })),
+        );
+      })),
+    ),
   );
 
   // ── Item list ─────────────────────────────────────────────────────────────
@@ -1327,8 +1391,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
     if (items.isEmpty) {
       return Center(
         child: Text('More content coming soon',
-            style: TextStyle(fontFamily: 'Mallanna',
-                color: Colors.grey.shade400, fontSize: 14)),
+            style: _Glass.body(size: 14, color: _Glass.textHint)),
       );
     }
     return ListView.builder(
@@ -1338,149 +1401,164 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
     );
   }
 
+  // Fallback shown if BOTH a local step image and the network image fail —
+  // a soft colored panel with an icon + the item name, never a raw broken-image icon.
+  Widget _thumbFallback(LifestyleItem item) => Container(
+        color: item.accentColor.withOpacity(0.12),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_outlined, size: 36, color: item.accentColor.withOpacity(0.4)),
+            const SizedBox(height: 6),
+            Text(item.name, style: _Glass.body(size: 13, color: item.accentColor)),
+          ],
+        ),
+      );
+
+  // Thumbnail source for a card: prefer the item's own local step photo
+  // (guaranteed to exist in the bundle) and only fall back to the network
+  // image when no local asset is available for this item.
+  Widget _thumbnailImage(LifestyleItem item) {
+    if (item.stepImages != null && item.stepImages!.isNotEmpty) {
+      return Image.asset(
+        item.stepImages!.first,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _thumbFallback(item),
+      );
+    }
+    return Image.network(
+      item.imageUrl,
+      fit: BoxFit.cover,
+      loadingBuilder: (_, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          color: item.accentColor.withOpacity(0.1),
+          alignment: Alignment.center,
+          child: CircularProgressIndicator(
+            value: progress.expectedTotalBytes != null
+                ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                : null,
+            strokeWidth: 2,
+            color: item.accentColor,
+          ),
+        );
+      },
+      errorBuilder: (_, __, ___) => _thumbFallback(item),
+    );
+  }
+
   Widget _buildItemCard(LifestyleItem item) {
     final c = _phase.color;
     return GestureDetector(
       onTap: () => _openDetail(item),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFEEEBE6), width: 0.5),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Photo ──────────────────────────────────────────────────
-            SizedBox(
-              height: 160,
-              width: double.infinity,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    item.imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (_, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        color: item.accentColor.withOpacity(0.1),
-                        alignment: Alignment.center,
-                        child: CircularProgressIndicator(
-                          value: progress.expectedTotalBytes != null
-                              ? progress.cumulativeBytesLoaded /
-                                  progress.expectedTotalBytes!
-                              : null,
-                          strokeWidth: 2,
-                          color: item.accentColor,
-                        ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => Container(
-                      color: item.accentColor.withOpacity(0.12),
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image_outlined,
-                              size: 36, color: item.accentColor.withOpacity(0.4)),
-                          const SizedBox(height: 6),
-                          Text(item.name,
-                              style: TextStyle(fontFamily: 'Mallanna',
-                                  fontSize: 13, color: item.accentColor)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Gradient overlay so text is readable
-                  Positioned(
-                    bottom: 0, left: 0, right: 0,
-                    child: Container(
-                      height: 70,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.55),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Duration pill
-                  Positioned(
-                    top: 10, right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.access_time_rounded,
-                            size: 11, color: Colors.white),
-                        const SizedBox(width: 4),
-                        Text(item.duration,
-                            style: const TextStyle(
-                                fontFamily: 'Mallanna', fontSize: 10,
-                                color: Colors.white, fontWeight: FontWeight.w500)),
-                      ]),
-                    ),
-                  ),
-                  // Name over gradient
-                  Positioned(
-                    bottom: 10, left: 12,
-                    child: Text(item.name,
-                        style: const TextStyle(
-                            fontFamily: 'Mallanna', fontSize: 15,
-                            fontWeight: FontWeight.w700, color: Colors.white)),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Card body ───────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.shortDesc,
-                      style: const TextStyle(fontFamily: 'Mallanna',
-                          fontSize: 12, color: Color(0xFF666666))),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+        child: _Glass.card(
+          radius: 18,
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Photo ──────────────────────────────────────────────────
+              SizedBox(
+                height: 160,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _thumbnailImage(item),
+                    // Gradient overlay so text is readable
+                    Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: Container(
+                        height: 70,
                         decoration: BoxDecoration(
-                          color: c.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.55),
+                              Colors.transparent,
+                            ],
+                          ),
                         ),
-                        child: Text('${item.steps.length} steps',
-                            style: TextStyle(
-                                fontFamily: 'Mallanna', fontSize: 10,
-                                fontWeight: FontWeight.w600, color: c)),
                       ),
-                      const Spacer(),
-                      Text('View tutorial',
-                          style: TextStyle(
-                              fontFamily: 'Mallanna', fontSize: 11,
-                              fontWeight: FontWeight.w600, color: c)),
-                      const SizedBox(width: 3),
-                      Icon(Icons.arrow_forward_rounded, size: 13, color: c),
-                    ],
-                  ),
-                ],
+                    ),
+                    // Duration pill
+                    Positioned(
+                      top: 10, right: 10,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.35),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(children: [
+                              const Icon(Icons.access_time_rounded,
+                                  size: 11, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Text(item.duration,
+                                  style: _Glass.body(
+                                      size: 10,
+                                      weight: FontWeight.w500,
+                                      color: Colors.white)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Name over gradient
+                    Positioned(
+                      bottom: 10, left: 12,
+                      child: Text(item.name,
+                          style: _Glass.heading(
+                              size: 15, weight: FontWeight.w700, color: Colors.white)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              // ── Card body ───────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.shortDesc,
+                        style: _Glass.body(size: 12, color: _Glass.textMuted)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: c.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text('${item.steps.length} steps',
+                              style: _Glass.body(
+                                  size: 10, weight: FontWeight.w600, color: c)),
+                        ),
+                        const Spacer(),
+                        Text('View tutorial',
+                            style: _Glass.body(
+                                size: 11, weight: FontWeight.w600, color: c)),
+                        const SizedBox(width: 3),
+                        Icon(Icons.arrow_forward_rounded, size: 13, color: c),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1511,331 +1589,348 @@ class _DetailScreenState extends State<_DetailScreen> {
     final total = item.steps.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2EEE9),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top bar ──────────────────────────────────────────────────
-            Container(
-              color: c,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.25),
-                        shape: BoxShape.circle),
-                    child: const Icon(Icons.chevron_left,
-                        color: Colors.white, size: 20),
+      backgroundColor: _Glass.pageBackground,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _AmbientBackground()),
+          SafeArea(
+            child: Column(
+              children: [
+                // ── Top bar ──────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                  child: _Glass.card(
+                    radius: 18,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.5),
+                              shape: BoxShape.circle),
+                          child: Icon(Icons.chevron_left,
+                              color: _Glass.textDark, size: 20),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(item.name,
+                            style: _Glass.heading(size: 16, weight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: c.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(item.duration,
+                            style: _Glass.body(
+                                size: 11, weight: FontWeight.w500, color: c)),
+                      ),
+                    ]),
                   ),
                 ),
-                const SizedBox(width: 10),
+
+                // ── Progress bar ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      height: 4,
+                      color: c.withOpacity(0.15),
+                      child: FractionallySizedBox(
+                        widthFactor: (_currentStep + 1) / total,
+                        alignment: Alignment.centerLeft,
+                        child: Container(color: c),
+                      ),
+                    ),
+                  ),
+                ),
+
                 Expanded(
-                  child: Text(item.name,
-                      style: const TextStyle(color: Colors.white,
-                          fontFamily: 'Mallanna', fontSize: 16,
-                          fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Text(item.duration,
-                      style: const TextStyle(fontFamily: 'Mallanna',
-                          fontSize: 11, color: Colors.white,
-                          fontWeight: FontWeight.w500)),
-                ),
-              ]),
-            ),
-
-            // ── Progress bar ──────────────────────────────────────────────
-            Container(
-              height: 3,
-              color: c.withOpacity(0.15),
-              child: FractionallySizedBox(
-                widthFactor: (_currentStep + 1) / total,
-                alignment: Alignment.centerLeft,
-                child: Container(color: c),
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-
-                    // ── Hero image ────────────────────────────────────────
-                    SizedBox(
-                      height: 220,
-                      width: double.infinity,
-                      child: Stack(
-                        fit: StackFit.expand,
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Use per-step local asset if available, else network image
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: item.stepImages != null
-                                ? Image.asset(
-                                    item.stepImages![_currentStep],
-                                    key: ValueKey('step_$_currentStep'),
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: 220,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: c.withOpacity(0.12),
-                                      alignment: Alignment.center,
-                                      child: Icon(Icons.image_outlined,
-                                          size: 48, color: c.withOpacity(0.3)),
+
+                          // ── Hero image ────────────────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: _Glass.card(
+                              radius: 20,
+                              padding: EdgeInsets.zero,
+                              child: SizedBox(
+                                height: 220,
+                                width: double.infinity,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    // Use per-step local asset if available, else network image
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 300),
+                                      child: item.stepImages != null
+                                          ? Image.asset(
+                                              item.stepImages![_currentStep],
+                                              key: ValueKey('step_$_currentStep'),
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: 220,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                color: c.withOpacity(0.12),
+                                                alignment: Alignment.center,
+                                                child: Icon(Icons.image_outlined,
+                                                    size: 48, color: c.withOpacity(0.3)),
+                                              ),
+                                            )
+                                          : Image.network(
+                                              item.imageUrl,
+                                              key: const ValueKey('network'),
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: 220,
+                                              loadingBuilder: (_, child, progress) {
+                                                if (progress == null) return child;
+                                                return Container(
+                                                  color: c.withOpacity(0.1),
+                                                  alignment: Alignment.center,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2, color: c,
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder: (_, __, ___) => Container(
+                                                color: c.withOpacity(0.12),
+                                                alignment: Alignment.center,
+                                                child: Icon(Icons.image_outlined,
+                                                    size: 48, color: c.withOpacity(0.3)),
+                                              ),
+                                            ),
                                     ),
-                                  )
-                                : Image.network(
-                                    item.imageUrl,
-                                    key: const ValueKey('network'),
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: 220,
-                                    loadingBuilder: (_, child, progress) {
-                                      if (progress == null) return child;
-                                      return Container(
-                                        color: c.withOpacity(0.1),
-                                        alignment: Alignment.center,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: c,
+                                    // Dark gradient at bottom
+                                    Positioned(
+                                      bottom: 0, left: 0, right: 0,
+                                      child: Container(
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.bottomCenter,
+                                            end: Alignment.topCenter,
+                                            colors: [
+                                              Colors.black.withOpacity(0.6),
+                                              Colors.transparent,
+                                            ],
+                                          ),
                                         ),
-                                      );
-                                    },
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: c.withOpacity(0.12),
-                                      alignment: Alignment.center,
-                                      child: Icon(Icons.image_outlined,
-                                          size: 48, color: c.withOpacity(0.3)),
+                                      ),
                                     ),
-                                  ),
-                          ),
-                          // Dark gradient at bottom
-                          Positioned(
-                            bottom: 0, left: 0, right: 0,
-                            child: Container(
-                              height: 80,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [
-                                    Colors.black.withOpacity(0.6),
-                                    Colors.transparent,
+                                    // Step indicator over image
+                                    Positioned(
+                                      bottom: 12, left: 14,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Step ${_currentStep + 1} of $total',
+                                              style: _Glass.body(
+                                                  size: 11,
+                                                  weight: FontWeight.w500,
+                                                  color: Colors.white.withOpacity(0.8))),
+                                          const SizedBox(height: 3),
+                                          Text(item.steps[_currentStep],
+                                              style: _Glass.heading(
+                                                  size: 15,
+                                                  weight: FontWeight.w700,
+                                                  color: Colors.white),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          // Step indicator over image
-                          Positioned(
-                            bottom: 12, left: 14,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Step ${_currentStep + 1} of $total',
-                                    style: TextStyle(
-                                        fontFamily: 'Mallanna', fontSize: 11,
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontWeight: FontWeight.w500)),
-                                const SizedBox(height: 3),
-                                Text(item.steps[_currentStep],
-                                    style: const TextStyle(
-                                        fontFamily: 'Mallanna', fontSize: 15,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis),
-                              ],
+
+                          const SizedBox(height: 10),
+
+                          // ── Dots navigation ───────────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: _Glass.card(
+                              radius: 18,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              child: Row(children: [
+                                // Prev button
+                                GestureDetector(
+                                  onTap: _currentStep > 0
+                                      ? () => setState(() => _currentStep--)
+                                      : null,
+                                  child: Container(
+                                    width: 36, height: 36,
+                                    decoration: BoxDecoration(
+                                      color: _currentStep > 0
+                                          ? Colors.white.withOpacity(0.6)
+                                          : Colors.white.withOpacity(0.25),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.chevron_left,
+                                        size: 20,
+                                        color: _currentStep > 0
+                                            ? _Glass.textDark
+                                            : _Glass.textHint),
+                                  ),
+                                ),
+
+                                // Dots
+                                Expanded(
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(total, (i) => Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                                      width: i == _currentStep ? 20 : 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: i == _currentStep
+                                            ? c
+                                            : _Glass.textHint.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    )),
+                                  ),
+                                ),
+
+                                // Next / Restart button
+                                GestureDetector(
+                                  onTap: () => setState(() {
+                                    if (_currentStep < total - 1) {
+                                      _currentStep++;
+                                    } else {
+                                      _currentStep = 0;
+                                    }
+                                  }),
+                                  child: Container(
+                                    width: 36, height: 36,
+                                    decoration: BoxDecoration(
+                                        color: c, shape: BoxShape.circle),
+                                    child: Icon(
+                                      _currentStep < total - 1
+                                          ? Icons.chevron_right
+                                          : Icons.refresh_rounded,
+                                      size: 20, color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ]),
                             ),
                           ),
+
+                          const SizedBox(height: 10),
+
+                          // ── Step cards (all steps listed) ──────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Column(
+                              children: List.generate(total, (i) {
+                                final isActive = i == _currentStep;
+                                final isDone = i < _currentStep;
+                                return GestureDetector(
+                                  onTap: () => setState(() => _currentStep = i),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: _Glass.card(
+                                      radius: 14,
+                                      padding: const EdgeInsets.all(13),
+                                      opacity: isActive ? 0.7 : 0.5,
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Step number circle
+                                          Container(
+                                            width: 26, height: 26,
+                                            decoration: BoxDecoration(
+                                              color: isDone
+                                                  ? const Color(0xFF3BAF7E)
+                                                  : isActive
+                                                      ? c
+                                                      : Colors.white.withOpacity(0.7),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: isDone
+                                                ? const Icon(Icons.check_rounded,
+                                                size: 14, color: Colors.white)
+                                                : Text('${i + 1}',
+                                                style: _Glass.body(
+                                                  size: 11,
+                                                  weight: FontWeight.w700,
+                                                  color: isActive
+                                                      ? Colors.white
+                                                      : _Glass.textMuted,
+                                                )),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(item.steps[i],
+                                                style: _Glass.body(
+                                                  size: 13,
+                                                  color: isDone
+                                                      ? _Glass.textHint
+                                                      : _Glass.textDark,
+                                                ).copyWith(
+                                                  height: 1.55,
+                                                  decoration: isDone
+                                                      ? TextDecoration.lineThrough
+                                                      : null,
+                                                  decorationColor: _Glass.textHint,
+                                                )),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // ── Why it helps ─────────────────────────────────────
+                          _infoCard(
+                            icon: Icons.science_outlined,
+                            color: c,
+                            label: 'Why it helps',
+                            body: item.why,
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // ── Pro tip ──────────────────────────────────────────
+                          _infoCard(
+                            icon: Icons.lightbulb_outline_rounded,
+                            color: c,
+                            label: 'Pro tip',
+                            body: item.tip,
+                            isHighlight: true,
+                          ),
+
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
-
-                    // ── Dots navigation ───────────────────────────────────
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(children: [
-                        // Prev button
-                        GestureDetector(
-                          onTap: _currentStep > 0
-                              ? () => setState(() => _currentStep--)
-                              : null,
-                          child: Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(
-                              color: _currentStep > 0
-                                  ? const Color(0xFFF0EEE9)
-                                  : const Color(0xFFF0EEE9).withOpacity(0.4),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.chevron_left,
-                                size: 20,
-                                color: _currentStep > 0
-                                    ? const Color(0xFF555555)
-                                    : Colors.grey.shade300),
-                          ),
-                        ),
-
-                        // Dots
-                        Expanded(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(total, (i) => Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              width: i == _currentStep ? 20 : 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: i == _currentStep
-                                    ? c
-                                    : const Color(0xFFDDD9D4),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            )),
-                          ),
-                        ),
-
-                        // Next / Restart button
-                        GestureDetector(
-                          onTap: () => setState(() {
-                            if (_currentStep < total - 1) {
-                              _currentStep++;
-                            } else {
-                              _currentStep = 0;
-                            }
-                          }),
-                          child: Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(
-                                color: c, shape: BoxShape.circle),
-                            child: Icon(
-                              _currentStep < total - 1
-                                  ? Icons.chevron_right
-                                  : Icons.refresh_rounded,
-                              size: 20, color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ]),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // ── Step cards (all steps listed) ──────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Column(
-                        children: List.generate(total, (i) {
-                          final isActive = i == _currentStep;
-                          final isDone = i < _currentStep;
-                          return GestureDetector(
-                            onTap: () => setState(() => _currentStep = i),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(13),
-                              decoration: BoxDecoration(
-                                color: isActive
-                                    ? c.withOpacity(0.08)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: isActive
-                                      ? c.withOpacity(0.3)
-                                      : const Color(0xFFEEEBE6),
-                                  width: isActive ? 1.5 : 0.5,
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Step number circle
-                                  Container(
-                                    width: 26, height: 26,
-                                    decoration: BoxDecoration(
-                                      color: isDone
-                                          ? const Color(0xFF3BAF7E)
-                                          : isActive
-                                              ? c
-                                              : const Color(0xFFE8E5E0),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: isDone
-                                        ? const Icon(Icons.check_rounded,
-                                        size: 14, color: Colors.white)
-                                        : Text('${i + 1}',
-                                        style: TextStyle(
-                                          fontFamily: 'Mallanna',
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: isActive
-                                              ? Colors.white
-                                              : Colors.grey.shade500,
-                                        )),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(item.steps[i],
-                                        style: TextStyle(
-                                          fontFamily: 'Mallanna',
-                                          fontSize: 13,
-                                          color: isDone
-                                              ? const Color(0xFF999999)
-                                              : const Color(0xFF333333),
-                                          height: 1.55,
-                                          decoration: isDone
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                          decorationColor: Colors.grey.shade400,
-                                        )),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // ── Why it helps ─────────────────────────────────────
-                    _infoCard(
-                      icon: Icons.science_outlined,
-                      color: c,
-                      label: 'Why it helps',
-                      body: item.why,
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // ── Pro tip ──────────────────────────────────────────
-                    _infoCard(
-                      icon: Icons.lightbulb_outline_rounded,
-                      color: c,
-                      label: 'Pro tip',
-                      body: item.tip,
-                      isHighlight: true,
-                    ),
-
-                    const SizedBox(height: 24),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1847,36 +1942,165 @@ class _DetailScreenState extends State<_DetailScreen> {
     required String body,
     bool isHighlight = false,
   }) =>
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isHighlight ? color.withOpacity(0.07) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isHighlight
-                ? color.withOpacity(0.2)
-                : const Color(0xFFEEEBE6),
-            width: 0.5,
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: _Glass.card(
+          radius: 16,
+          padding: const EdgeInsets.all(14),
+          opacity: isHighlight ? 0.65 : 0.5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(label.toUpperCase(),
+                    style: _Glass.body(
+                        size: 10, weight: FontWeight.w700, color: color)
+                        .copyWith(letterSpacing: .5)),
+              ]),
+              const SizedBox(height: 8),
+              Text(body,
+                  style: _Glass.body(size: 13, color: _Glass.textMuted)
+                      .copyWith(height: 1.65)),
+            ],
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 6),
-              Text(label.toUpperCase(),
-                  style: TextStyle(
-                      fontFamily: 'Mallanna', fontSize: 10,
-                      fontWeight: FontWeight.w700, color: color,
-                      letterSpacing: .5)),
-            ]),
-            const SizedBox(height: 8),
-            Text(body,
-                style: const TextStyle(fontFamily: 'Mallanna',
-                    fontSize: 13, color: Color(0xFF555555), height: 1.65)),
-          ],
-        ),
       );
+}
+
+// ─── Glass design tokens ───────────────────────────────────────────────────────
+// Shared frosted-glass / ambient-blob design system reused across every
+// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
+
+class _Glass {
+  static const Color pageBackground = Color(0xFFF3F1FB);
+
+  static const Color blue = Color(0xFF9FC8FF);
+  static const Color blueDeep = Color(0xFF5B93E0);
+  static const Color pink = Color(0xFFFFA7CE);
+  static const Color pinkDeep = Color(0xFFE0679A);
+  static const Color purple = Color(0xFFC6ACFF);
+  static const Color purpleDeep = Color(0xFF9A78E0);
+
+  static const Color textDark = Color(0xFF2B2638);
+  static const Color textMuted = Color(0xFF6E677D);
+  static const Color textHint = Color(0xFFA6A0B4);
+
+  static TextStyle heading({
+    double size = 22,
+    FontWeight weight = FontWeight.w700,
+    Color color = textDark,
+  }) =>
+      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
+
+  static TextStyle body({
+    double size = 14,
+    FontWeight weight = FontWeight.w500,
+    Color color = textDark,
+  }) =>
+      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
+
+  /// Frosted translucent card: blurred backdrop + soft white glass fill.
+  static Widget card({
+    required Widget child,
+    double radius = 24,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    double opacity = 0.55,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(opacity),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: purpleDeep.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
+/// behind the frosted glass content. Purely decorative — no state that
+/// affects the rest of the screen.
+class _AmbientBackground extends StatefulWidget {
+  const _AmbientBackground();
+
+  @override
+  State<_AmbientBackground> createState() => _AmbientBackgroundState();
+}
+
+class _AmbientBackgroundState extends State<_AmbientBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 22),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value * 2 * math.pi;
+        return Stack(
+          children: [
+            Container(color: _Glass.pageBackground),
+            Positioned(
+              top: -60 + 24 * math.sin(t),
+              left: -70 + 20 * math.cos(t),
+              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
+            ),
+            Positioned(
+              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
+              right: -90 + 22 * math.sin(t * 0.85),
+              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
+            ),
+            Positioned(
+              bottom: -80 + 20 * math.sin(t * 1.15),
+              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
+              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _blob(double diameter, Color color) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+      child: Container(
+        width: diameter,
+        height: diameter,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
 }

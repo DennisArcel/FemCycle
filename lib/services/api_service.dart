@@ -10,7 +10,7 @@ class ApiService {
   // - Physical phone (same WiFi as your PC)  -> your PC's local IP (e.g. 192.168.1.X)
   // Just change this one line depending on what you're testing on.
   // ─────────────────────────────────────────────────────────────────────
-  static const String baseUrl = 'https://glutinous-idealist-slit.ngrok-free.dev/api';
+  static const String baseUrl = 'https://femcycleapp-production.up.railway.app/api';
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
@@ -74,7 +74,7 @@ class ApiService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'DEBUG: $e', // temporary — shows the real error
+        'message': 'Could not connect to server. Check your connection.',
       };
     }
   }
@@ -87,6 +87,7 @@ class ApiService {
     required String email,
     required String password,
     required String passwordConfirmation,
+    String? birthday,
   }) async {
     try {
       final response = await http.post(
@@ -102,6 +103,7 @@ class ApiService {
           'email': email,
           'password': password,
           'password_confirmation': passwordConfirmation,
+          'birthday': birthday,
         }),
       ).timeout(
         const Duration(seconds: 15),
@@ -242,7 +244,52 @@ class ApiService {
       };
     }
   }
+static Future<Map<String, dynamic>> getSymptomProfile() async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/user/symptom-profile'),
+      headers: await _authHeaders(),
+    ).timeout(const Duration(seconds: 15));
 
+    if (response.statusCode == 200) {
+      return {'success': true, 'data': jsonDecode(response.body)};
+    } else {
+      return {'success': false, 'message': 'Could not load health profile.'};
+    }
+  } catch (e) {
+    return {
+      'success': false,
+      'message': 'Could not connect to server. Check your connection.',
+    };
+  }
+}
+
+// ── UPDATE SYMPTOM PROFILE ────────────────────────────────────────────
+static Future<Map<String, dynamic>> updateSymptomProfile(
+    Map<String, bool?> answers) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/user/symptom-profile'),
+      headers: await _authHeaders(),
+      body: jsonEncode(answers),
+    ).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return {'success': true};
+    } else {
+      final body = jsonDecode(response.body);
+      return {
+        'success': false,
+        'message': body['message'] ?? 'Could not update health profile.',
+      };
+    }
+  } catch (e) {
+    return {
+      'success': false,
+      'message': 'Could not connect to server. Check your connection.',
+    };
+  }
+}
   // ── LOGOUT ───────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> logout() async {
     try {
@@ -252,6 +299,8 @@ class ApiService {
       ).timeout(const Duration(seconds: 10));
 
       await deleteToken();
+      await _storage.delete(key: 'remember_me');
+      await _storage.delete(key: 'saved_email');
 
       if (response.statusCode == 200) {
         return {'success': true};
@@ -261,7 +310,45 @@ class ApiService {
       }
     } catch (e) {
       await deleteToken();
+      await _storage.delete(key: 'remember_me');
+      await _storage.delete(key: 'saved_email');
       return {'success': true};
+    }
+  }
+
+  // ── DELETE ACCOUNT ──────────────────────────────────────────────────
+  // Hard delete, required for Play Store account-deletion compliance.
+  // Requires the user's current password as re-confirmation. On success,
+  // clears local token/session the same way logout() does, since the
+  // account (and its Sanctum tokens) no longer exist server-side.
+  static Future<Map<String, dynamic>> deleteAccount({
+    required String password,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/user/account'),
+        headers: await _authHeaders(),
+        body: jsonEncode({'password': password}),
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        await deleteToken();
+        await _storage.delete(key: 'remember_me');
+        await _storage.delete(key: 'saved_email');
+        return {'success': true};
+      } else {
+        return {
+          'success': false,
+          'message': body['message'] ?? 'Could not delete account.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
     }
   }
 
@@ -405,7 +492,38 @@ class ApiService {
       };
     }
   }
+  //Regster OTP
+  static Future<Map<String, dynamic>> sendRegisterOtp({required String email}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/send-register-otp'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => http.Response('{"message":"Request timed out. Please check your connection."}', 408),
+      );
 
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': body['message']};
+      } else {
+        return {
+          'success': false,
+          'message': body['message'] ?? 'Could not send OTP. Please try again.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
   // ── UPDATE PROFILE ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> updateProfile({
     required String firstName,
@@ -471,6 +589,27 @@ class ApiService {
           'success': false,
           'message': body['message'] ?? 'Could not update password.',
         };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+  // ── UPDATE DEVICE TOKEN (for push notifications) ─────────────────────
+  static Future<Map<String, dynamic>> updateDeviceToken(String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/user/device-token'),
+        headers: await _authHeaders(),
+        body: jsonEncode({'device_token': token}),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        return {'success': false, 'message': 'Could not update device token.'};
       }
     } catch (e) {
       return {
