@@ -378,10 +378,17 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
   }
 
   // ── DIARY: CREATE ENTRY ─────────────────────────────────────────────
+  // `date` lets the user log a past day instead of always defaulting to
+  // "now" — sent as an ISO-8601 string under the `date` key. The Laravel
+  // controller needs to read this field and, when present, store it into
+  // `created_at` (and `updated_at`) on the diary_entries row instead of
+  // letting Eloquent auto-stamp the current time, since DiaryScreen groups
+  // and displays entries by `created_at`.
   static Future<Map<String, dynamic>> createDiaryEntry({
     required String title,
     required String body,
     String? mood,
+    DateTime? date,
   }) async {
     try {
       final response = await http.post(
@@ -391,6 +398,7 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
           'title': title,
           'body': body,
           'mood': mood,
+          if (date != null) 'date': date.toIso8601String(),
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -413,11 +421,13 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
   }
 
   // ── DIARY: UPDATE ENTRY ─────────────────────────────────────────────
+  // See the note on createDiaryEntry — same `date` handling applies here.
   static Future<Map<String, dynamic>> updateDiaryEntry({
     required int id,
     required String title,
     required String body,
     String? mood,
+    DateTime? date,
   }) async {
     try {
       final response = await http.put(
@@ -427,6 +437,7 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
           'title': title,
           'body': body,
           'mood': mood,
+          if (date != null) 'date': date.toIso8601String(),
         }),
       ).timeout(const Duration(seconds: 15));
 

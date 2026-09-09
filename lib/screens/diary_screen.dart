@@ -33,10 +33,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Mood label -> color mapping (kept client-side; DB only stores the label).
-  // Keys stay exactly as the backend sends/expects them (still emoji-prefixed
-  // in the stored value, e.g. '😊 Happy') for backward compatibility with
-  // already-logged entries and diary_entry_screen.dart's stored mood value.
+  // Mood label -> color mapping (kept client-side; DB only stores the
+  // label(s)). Keys stay exactly as the backend sends/expects them (still
+  // emoji-prefixed in the stored value, e.g. '😊 Happy') for backward
+  // compatibility with already-logged entries and diary_entry_screen.dart's
+  // stored mood value.
   // Only the DISPLAY strips the emoji — see _cleanMoodLabel().
   static const Map<String, Map<String, Color>> _moodStyles = {
     '😊 Happy': {'color': Color(0xFF185FA5), 'bg': Color(0xFFE4E8FE)},
@@ -47,8 +48,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
     '⚡ Energetic': {'color': Color(0xFF84B2E9), 'bg': Color(0xFFE4E8FE)},
   };
 
-  // Strips a leading emoji + space for display only — the stored/sent value
-  // passed around the app is never touched by this.
+  // Style used for custom "Others" moods that aren't one of the fixed
+  // labels above — must match _othersColor / _othersBg in
+  // diary_entry_screen.dart.
+  static const Color _customMoodColor = Color(0xFF9A78E0);
+  static const Color _customMoodBg = Color(0xFFF3E8FA);
+
+  // Strips a leading emoji + space for display — only ever applied to a
+  // KNOWN mood label (see _parseMoodChips), never to free-typed custom
+  // text, so a custom mood like "feeling great" never gets mangled into
+  // "great".
   static String _cleanMoodLabel(String raw) =>
       raw.replaceFirst(RegExp(r'^\S+\s+'), '');
 
@@ -113,25 +122,64 @@ class _DiaryScreenState extends State<DiaryScreen> {
   // Converts a raw Laravel diary_entries row into the shape the UI expects
   Map<String, dynamic> _mapApiEntry(Map<String, dynamic> raw) {
     final createdAt = DateTime.parse(raw['created_at']);
-    final moodLabel = raw['mood'] as String? ?? '🌸 Calm';
-    final style = _moodStyles[moodLabel] ??
-        {'color': const Color(0xFF185FA5), 'bg': const Color(0xFFE4E8FE)};
+    final moodField = raw['mood'] as String?;
     final body = raw['body'] as String? ?? '';
 
     return {
       'id': raw['id'],
+      // Raw ISO timestamp, kept as-is so DiaryEntryScreen can preselect the
+      // real date when the user edits an entry (the fields below are for
+      // display/grouping only and lose precision).
+      'date': raw['created_at'],
       'day': createdAt.day,
       'weekday': _weekdays[createdAt.weekday - 1],
       'month': '${_months[createdAt.month - 1]} ${createdAt.year}',
       'title': raw['title'] as String? ?? '',
       'preview': body.length > 80 ? '${body.substring(0, 80)}...' : body,
       'body': body,
-      'mood': moodLabel,
-      'moodColor': style['color'],
-      'moodBg': style['bg'],
+      'mood': moodField,
+      // One or more chips to render — an entry can now have multiple moods
+      // plus a free-typed "Others" mood, comma-separated in `moodField`.
+      'moodChips': _parseMoodChips(moodField),
       'accentColor': _Glass.blueDeep,
       'time': _formatTime(createdAt),
     };
+  }
+
+  List<Map<String, dynamic>> _parseMoodChips(String? moodField) {
+    if (moodField == null || moodField.trim().isEmpty) {
+      const fallback = '🌸 Calm';
+      final style = _moodStyles[fallback]!;
+      return [
+        {
+          'label': _cleanMoodLabel(fallback),
+          'color': style['color'],
+          'bg': style['bg'],
+        }
+      ];
+    }
+
+    final tokens = moodField
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty);
+
+    return tokens.map((token) {
+      final style = _moodStyles[token];
+      if (style != null) {
+        return {
+          'label': _cleanMoodLabel(token),
+          'color': style['color'],
+          'bg': style['bg'],
+        };
+      }
+      // Unrecognized token = a custom "Others" mood the user typed in.
+      return {
+        'label': token,
+        'color': _customMoodColor,
+        'bg': _customMoodBg,
+      };
+    }).toList();
   }
 
   String _formatTime(DateTime dt) {
@@ -312,7 +360,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   Widget _buildEntryCard(Map<String, dynamic> entry) {
     final accentColor = entry['accentColor'] as Color;
-    final moodColor = entry['moodColor'] as Color;
+    final moodChips = entry['moodChips'] as List<Map<String, dynamic>>;
     return GestureDetector(
       onTap: () => _openEntry(entry),
       child: Container(
@@ -366,36 +414,48 @@ class _DiaryScreenState extends State<DiaryScreen> {
                         ),
                         const SizedBox(height: 8),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: entry['moodBg'] as Color,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            Expanded(
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
                                 children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                        color: moodColor, shape: BoxShape.circle),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _cleanMoodLabel(entry['mood'] as String),
-                                    style: _Glass.body(
-                                      size: 10,
-                                      weight: FontWeight.w600,
-                                      color: moodColor,
+                                  for (final chip in moodChips)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: chip['bg'] as Color,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                                color: chip['color'] as Color,
+                                                shape: BoxShape.circle),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            chip['label'] as String,
+                                            style: _Glass.body(
+                                              size: 10,
+                                              weight: FontWeight.w600,
+                                              color: chip['color'] as Color,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 6),
                             Text(
                               entry['time'] as String,
                               style: _Glass.body(size: 10, color: _Glass.textHint),

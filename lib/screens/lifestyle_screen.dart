@@ -1293,8 +1293,6 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Your current phase',
-              style: _Glass.body(size: 11, color: _Glass.textHint)),
           const SizedBox(height: 8),
           SizedBox(
             height: 38,

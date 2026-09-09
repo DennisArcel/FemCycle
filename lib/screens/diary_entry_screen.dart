@@ -16,7 +16,18 @@ class DiaryEntryScreen extends StatefulWidget {
 class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
-  int _selectedMood = -1;
+  final _customMoodController = TextEditingController();
+
+  // Multiple moods can now be selected at once.
+  final Set<int> _selectedMoods = {};
+
+  // "Others" chip: active = chip is toggled on (has or is getting custom
+  // text), editing = currently showing the inline text field.
+  bool _customMoodActive = false;
+  bool _customMoodEditing = false;
+
+  DateTime _selectedDate = DateTime.now();
+
   bool _isEditing = false;
   bool _isSaving = false;
 
@@ -33,6 +44,10 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     {'label': '⚡ Energetic', 'color': const Color(0xFF84B2E9), 'bg': const Color(0xFFE4E8FE)},
   ];
 
+  // Colors used for the custom "Others" mood chip.
+  static const Color _othersColor = _Glass.purpleDeep;
+  static const Color _othersBg = Color(0xFFF3E8FA);
+
   static String _cleanLabel(String raw) =>
       raw.replaceFirst(RegExp(r'^\S+\s+'), '');
 
@@ -42,9 +57,34 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     if (widget.entry != null) {
       _titleController.text = widget.entry!['title'] ?? '';
       _bodyController.text = widget.entry!['body'] ?? '';
-      final moodLabel = widget.entry!['mood'] as String?;
-      if (moodLabel != null) {
-        _selectedMood = _moods.indexWhere((m) => m['label'] == moodLabel);
+
+      // 'date' is the raw ISO timestamp from the backend, passed through by
+      // DiaryScreen._mapApiEntry alongside the already-formatted display
+      // fields, so we can preselect the real date when editing.
+      final rawDate = widget.entry!['date'] as String?;
+      if (rawDate != null) {
+        final parsed = DateTime.tryParse(rawDate);
+        if (parsed != null) _selectedDate = parsed;
+      }
+
+      // The backend stores mood(s) as a single comma-separated string, e.g.
+      // "😊 Happy, 🌸 Calm, feeling nostalgic". Split it back out into the
+      // known mood chips plus (at most) one custom "Others" value.
+      final moodField = widget.entry!['mood'] as String?;
+      if (moodField != null && moodField.trim().isNotEmpty) {
+        final tokens = moodField
+            .split(',')
+            .map((t) => t.trim())
+            .where((t) => t.isNotEmpty);
+        for (final token in tokens) {
+          final idx = _moods.indexWhere((m) => m['label'] == token);
+          if (idx != -1) {
+            _selectedMoods.add(idx);
+          } else {
+            _customMoodActive = true;
+            _customMoodController.text = token;
+          }
+        }
       }
       _isEditing = false;
     } else {
@@ -56,17 +96,45 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
+    _customMoodController.dispose();
     super.dispose();
   }
 
   String get _formattedDate {
-    final now = DateTime.now();
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}, ${now.year}';
+    final d = _selectedDate;
+    return '${weekdays[d.weekday - 1]}, ${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate.isAfter(now) ? now : _selectedDate,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(primary: _Glass.blueDeep),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _selectedDate = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        _selectedDate.hour,
+        _selectedDate.minute,
+        _selectedDate.second,
+      );
+    });
   }
 
   void _showSnack(String msg, {bool isError = true}) {
@@ -89,23 +157,35 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       return;
     }
 
-    final mood = _selectedMood >= 0 ? _moods[_selectedMood]['label'] as String : null;
+    final moodLabels = <String>[
+      for (final i in _selectedMoods) _moods[i]['label'] as String,
+    ];
+    final customText = _customMoodController.text.trim();
+    if (_customMoodActive && customText.isNotEmpty) {
+      moodLabels.add(customText);
+    }
+    final mood = moodLabels.isNotEmpty ? moodLabels.join(', ') : null;
 
     setState(() => _isSaving = true);
 
     final isUpdate = widget.entry != null && widget.entry!['id'] != null;
 
+    // NOTE: ApiService.createDiaryEntry / updateDiaryEntry need a `date`
+    // parameter added (DateTime, sent as an ISO string) so the backend logs
+    // the entry under the chosen day instead of always "now".
     final result = isUpdate
         ? await ApiService.updateDiaryEntry(
             id: widget.entry!['id'] as int,
             title: title,
             body: body,
             mood: mood,
+            date: _selectedDate,
           )
         : await ApiService.createDiaryEntry(
             title: title,
             body: body,
             mood: mood,
+            date: _selectedDate,
           );
 
     if (!mounted) return;
@@ -190,84 +270,47 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _Glass.blue.withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.calendar_today, size: 13, color: _Glass.blueDeep),
-                                const SizedBox(width: 5),
-                                Text(
-                                  widget.entry != null
-                                      ? '${widget.entry!['weekday'] ?? ''}, ${widget.entry!['month'] ?? ''} ${widget.entry!['day'] ?? ''}'
-                                      : _formattedDate,
-                                  style: _Glass.body(
-                                      size: 12, weight: FontWeight.w600, color: _Glass.blueDeep),
-                                ),
-                              ],
+                          GestureDetector(
+                            onTap: _isEditing ? _pickDate : null,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _Glass.blue.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.calendar_today, size: 13, color: _Glass.blueDeep),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _formattedDate,
+                                    style: _Glass.body(
+                                        size: 12, weight: FontWeight.w600, color: _Glass.blueDeep),
+                                  ),
+                                  if (_isEditing) ...[
+                                    const SizedBox(width: 5),
+                                    Icon(Icons.edit_calendar_outlined,
+                                        size: 13, color: _Glass.blueDeep),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text('How are you feeling?',
                               style: _Glass.body(size: 12, color: _Glass.textHint)),
+                          const SizedBox(height: 4),
+                          Text('Select one or more, or add your own.',
+                              style: _Glass.body(size: 11, color: _Glass.textHint)),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 6,
                             runSpacing: 6,
-                            children: List.generate(_moods.length, (i) {
-                              final isSelected = _selectedMood == i;
-                              final mood = _moods[i];
-                              final moodColor = mood['color'] as Color;
-                              return GestureDetector(
-                                onTap: _isEditing
-                                    ? () => setState(() => _selectedMood = i)
-                                    : null,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? mood['bg'] as Color
-                                        : Colors.white.withOpacity(0.5),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? moodColor
-                                          : Colors.white.withOpacity(0.7),
-                                      width: isSelected ? 1.5 : 0.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 7, height: 7,
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? moodColor : _Glass.textHint,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _cleanLabel(mood['label'] as String),
-                                        style: _Glass.body(
-                                          size: 12,
-                                          weight: isSelected
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                          color: isSelected ? moodColor : _Glass.textMuted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }),
+                            children: [
+                              ...List.generate(_moods.length, (i) => _buildMoodChip(i)),
+                              _buildOthersChip(),
+                            ],
                           ),
                           const SizedBox(height: 20),
                           TextField(
@@ -320,6 +363,169 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Mood chips ─────────────────────────────────────────────────────────
+
+  Widget _buildMoodChip(int i) {
+    final isSelected = _selectedMoods.contains(i);
+    final mood = _moods[i];
+    final moodColor = mood['color'] as Color;
+    return GestureDetector(
+      onTap: _isEditing
+          ? () => setState(() {
+                if (isSelected) {
+                  _selectedMoods.remove(i);
+                } else {
+                  _selectedMoods.add(i);
+                }
+              })
+          : null,
+      child: _moodPill(
+        isSelected: isSelected,
+        color: moodColor,
+        bg: mood['bg'] as Color,
+        label: _cleanLabel(mood['label'] as String),
+      ),
+    );
+  }
+
+  Widget _buildOthersChip() {
+    // Not toggled on yet: a plain "+ Others" chip.
+    if (!_customMoodActive) {
+      return GestureDetector(
+        onTap: _isEditing
+            ? () => setState(() {
+                  _customMoodActive = true;
+                  _customMoodEditing = true;
+                })
+            : null,
+        child: _moodPill(
+          isSelected: false,
+          color: _othersColor,
+          bg: _othersBg,
+          label: 'Others',
+        ),
+      );
+    }
+
+    // Toggled on and currently typing.
+    if (_customMoodEditing) {
+      return Container(
+        constraints: const BoxConstraints(minWidth: 100, maxWidth: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        decoration: BoxDecoration(
+          color: _othersBg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _othersColor, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: TextField(
+                controller: _customMoodController,
+                autofocus: true,
+                enabled: _isEditing,
+                maxLength: 24,
+                style: _Glass.body(size: 12, weight: FontWeight.w600, color: _othersColor),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  isCollapsed: true,
+                  counterText: '',
+                  border: InputBorder.none,
+                  hintText: 'Type a feeling',
+                ),
+                onSubmitted: (_) => setState(() => _customMoodEditing = false),
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => setState(() {
+                if (_customMoodController.text.trim().isEmpty) {
+                  _customMoodActive = false;
+                }
+                _customMoodEditing = false;
+              }),
+              child: Icon(Icons.check_rounded, size: 15, color: _othersColor),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Toggled on with saved text: render exactly like the other mood chips.
+    final label = _customMoodController.text.trim();
+    if (label.isEmpty) {
+      return GestureDetector(
+        onTap: _isEditing ? () => setState(() => _customMoodEditing = true) : null,
+        child: _moodPill(isSelected: false, color: _othersColor, bg: _othersBg, label: 'Others'),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _isEditing ? () => setState(() => _customMoodEditing = true) : null,
+      child: _moodPill(
+        isSelected: true,
+        color: _othersColor,
+        bg: _othersBg,
+        label: label,
+        trailing: _isEditing
+            ? GestureDetector(
+                onTap: () => setState(() {
+                  _customMoodActive = false;
+                  _customMoodController.clear();
+                }),
+                child: Icon(Icons.close_rounded, size: 13, color: _othersColor),
+              )
+            : null,
+      ),
+    );
+  }
+
+  /// Shared pill styling so the built-in moods and the custom "Others" mood
+  /// look identical once selected.
+  Widget _moodPill({
+    required bool isSelected,
+    required Color color,
+    required Color bg,
+    required String label,
+    Widget? trailing,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? bg : Colors.white.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected ? color : Colors.white.withOpacity(0.7),
+          width: isSelected ? 1.5 : 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7, height: 7,
+            decoration: BoxDecoration(
+              color: isSelected ? color : _Glass.textHint,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: _Glass.body(
+              size: 12,
+              weight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? color : _Glass.textMuted,
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 5), trailing],
         ],
       ),
     );

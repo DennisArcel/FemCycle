@@ -59,292 +59,277 @@ class ArticleDetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Space for the sticky top bar
-                      const SizedBox(height: 68),
-
-                      // ── Hero banner ────────────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                          child: Container(
-                            width: double.infinity,
-                            height: 200,
-                            color: c.surface.withOpacity(0.75),
-                            alignment: Alignment.center
-                          ),
-                        ),
-                      ),
+                      // Space for the sticky top bar (was 68 when the hero
+                      // banner sat directly under it; bumped up slightly now
+                      // that the card starts here instead).
+                      const SizedBox(height: 84),
 
                       // ── Frosted article card ────────────────────────────────
-                      Transform.translate(
-                        offset: const Offset(0, 0),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: _Glass.card(
-                            radius: 22,
-                            padding: const EdgeInsets.all(20),
-                            opacity: 0.65,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: _Glass.card(
+                          radius: 22,
+                          padding: const EdgeInsets.all(20),
+                          opacity: 0.65,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
 
-                                // Category pill
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: c.surface,
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Text(
-                                    article.tag.toUpperCase(),
-                                    style: _Glass.body(
-                                      size: 10,
-                                      weight: FontWeight.w700,
-                                      color: c.deep,
-                                    ).copyWith(letterSpacing: .5),
+                              // Category pill
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: c.surface,
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: Text(
+                                  article.tag.toUpperCase(),
+                                  style: _Glass.body(
+                                    size: 10,
+                                    weight: FontWeight.w700,
+                                    color: c.deep,
+                                  ).copyWith(letterSpacing: .5),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Title
+                              Text(
+                                article.title,
+                                style: _Glass.heading(
+                                  size: 24,
+                                  weight: FontWeight.w800,
+                                  color: _Glass.textDark,
+                                ).copyWith(height: 1.2),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Byline
+                              Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  border: Border.symmetric(
+                                    horizontal: BorderSide(color: Colors.white.withOpacity(0.6), width: .5),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-
-                                // Title
-                                Text(
-                                  article.title,
-                                  style: _Glass.heading(
-                                    size: 24,
-                                    weight: FontWeight.w800,
-                                    color: _Glass.textDark,
-                                  ).copyWith(height: 1.2),
-                                ),
-                                const SizedBox(height: 12),
-
-                                // Byline
-                                Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    border: Border.symmetric(
-                                      horizontal: BorderSide(color: Colors.white.withOpacity(0.6), width: .5),
-                                    ),
+                                child: Row(children: [
+                                  CircleAvatar(
+                                    radius: 17,
+                                    backgroundColor: c.accent,
+                                    child: const Text('FC',
+                                        style: TextStyle(
+                                            fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
                                   ),
-                                  child: Row(children: [
-                                    CircleAvatar(
-                                      radius: 17,
-                                      backgroundColor: c.accent,
-                                      child: const Text('FC',
-                                          style: TextStyle(
-                                              fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('FemCycle Health',
-                                            style: _Glass.body(size: 13, weight: FontWeight.w600)),
-                                        Text('Editorial team',
-                                            style: _Glass.body(size: 11, color: _Glass.textHint)),
-                                      ],
-                                    ),
-                                    const Spacer(),
-                                    Row(children: [
-                                      Icon(Icons.access_time_rounded, size: 12, color: _Glass.textHint),
-                                      const SizedBox(width: 4),
-                                      Text(article.readTime,
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('FemCycle Health',
+                                          style: _Glass.body(size: 13, weight: FontWeight.w600)),
+                                      Text('Editorial team',
                                           style: _Glass.body(size: 11, color: _Glass.textHint)),
-                                    ]),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Row(children: [
+                                    Icon(Icons.access_time_rounded, size: 12, color: _Glass.textHint),
+                                    const SizedBox(width: 4),
+                                    Text(article.readTime,
+                                        style: _Glass.body(size: 11, color: _Glass.textHint)),
                                   ]),
-                                ),
-                                const SizedBox(height: 16),
+                                ]),
+                              ),
+                              const SizedBox(height: 16),
 
-                                // Intro — italic serif kept for editorial feel
-                                Text(
-                                  article.intro,
+                              // Intro — italic serif kept for editorial feel
+                              Text(
+                                article.intro,
+                                style: GoogleFonts.quicksand(
+                                  fontSize: 15,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.w600,
+                                  color: _Glass.textDark,
+                                  height: 1.75,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Pull quote
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: c.surface.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border(left: BorderSide(color: c.accent, width: 3)),
+                                ),
+                                child: Text(
+                                  article.pullQuote,
                                   style: GoogleFonts.quicksand(
                                     fontSize: 15,
                                     fontStyle: FontStyle.italic,
-                                    fontWeight: FontWeight.w600,
-                                    color: _Glass.textDark,
-                                    height: 1.75,
+                                    color: c.deep,
+                                    height: 1.65,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                              ),
 
-                                // Pull quote
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: c.surface.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border(left: BorderSide(color: c.accent, width: 3)),
-                                  ),
-                                  child: Text(
-                                    article.pullQuote,
-                                    style: GoogleFonts.quicksand(
-                                      fontSize: 15,
-                                      fontStyle: FontStyle.italic,
-                                      color: c.deep,
-                                      height: 1.65,
+                              // Sections
+                              ...article.sections.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final s = entry.value;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (i > 0)
+                                      Divider(height: 32, thickness: .5, color: Colors.white.withOpacity(0.6))
+                                    else
+                                      const SizedBox(height: 20),
+                                    Text(s.heading,
+                                        style: _Glass.body(size: 15, weight: FontWeight.w700)),
+                                    const SizedBox(height: 8),
+                                    Text(s.body,
+                                        style: _Glass.body(
+                                          size: 13.5,
+                                          color: _Glass.textMuted,
+                                        ).copyWith(height: 1.78)),
+                                  ],
+                                );
+                              }),
+
+                              const SizedBox(height: 20),
+
+                              // Callout box
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: calloutColor.surface.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border(left: BorderSide(color: calloutColor.accent, width: 3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      article.callout.label.toUpperCase(),
+                                      style: _Glass.body(
+                                        size: 10,
+                                        weight: FontWeight.w700,
+                                        color: calloutColor.deep,
+                                      ).copyWith(letterSpacing: .6),
                                     ),
-                                  ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      article.callout.text,
+                                      style: _Glass.body(
+                                        size: 13,
+                                        color: calloutColor.deep,
+                                      ).copyWith(height: 1.6),
+                                    ),
+                                  ],
                                 ),
+                              ),
 
-                                // Sections
-                                ...article.sections.asMap().entries.map((entry) {
-                                  final i = entry.key;
-                                  final s = entry.value;
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (i > 0)
-                                        Divider(height: 32, thickness: .5, color: Colors.white.withOpacity(0.6))
-                                      else
-                                        const SizedBox(height: 20),
-                                      Text(s.heading,
-                                          style: _Glass.body(size: 15, weight: FontWeight.w700)),
-                                      const SizedBox(height: 8),
-                                      Text(s.body,
-                                          style: _Glass.body(
-                                            size: 13.5,
-                                            color: _Glass.textMuted,
-                                          ).copyWith(height: 1.78)),
-                                    ],
-                                  );
-                                }),
+                              const SizedBox(height: 20),
 
-                                const SizedBox(height: 20),
-
-                                // Callout box
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: calloutColor.surface.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border(left: BorderSide(color: calloutColor.accent, width: 3)),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        article.callout.label.toUpperCase(),
-                                        style: _Glass.body(
-                                          size: 10,
-                                          weight: FontWeight.w700,
-                                          color: calloutColor.deep,
-                                        ).copyWith(letterSpacing: .6),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        article.callout.text,
-                                        style: _Glass.body(
-                                          size: 13,
-                                          color: calloutColor.deep,
-                                        ).copyWith(height: 1.6),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // Related topics
-                                Text('RELATED TOPICS',
-                                    style: _Glass.body(
-                                      size: 11,
-                                      weight: FontWeight.w700,
-                                      color: _Glass.textHint,
-                                    ).copyWith(letterSpacing: .6)),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: article.pills
-                                      .map((p) => Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: c.surface,
-                                              borderRadius: BorderRadius.circular(30),
-                                            ),
-                                            child: Text(p,
-                                                style: _Glass.body(
-                                                    size: 11, weight: FontWeight.w500, color: c.deep)),
-                                          ))
-                                      .toList(),
-                                ),
-
-                                const SizedBox(height: 24),
-                                Divider(height: 1, thickness: .5, color: Colors.white.withOpacity(0.6)),
-                                const SizedBox(height: 20),
-
-                                // ── Source section ─────────────────────────────
-                                Row(children: [
-                                  Icon(Icons.verified_outlined, size: 14, color: c.accent),
-                                  const SizedBox(width: 6),
-                                  Text('Source: ${article.sourceName}',
-                                      style: _Glass.body(size: 12, weight: FontWeight.w700, color: c.deep)),
-                                ]),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'This article draws from peer-reviewed research and '
-                                  'trusted health publications. Tap the button below '
-                                  'to read the full article on ${article.sourceName}.',
+                              // Related topics
+                              Text('RELATED TOPICS',
                                   style: _Glass.body(
                                     size: 11,
-                                    color: c.deep.withOpacity(0.7),
-                                  ).copyWith(height: 1.5),
-                                ),
-                                const SizedBox(height: 14),
+                                    weight: FontWeight.w700,
+                                    color: _Glass.textHint,
+                                  ).copyWith(letterSpacing: .6)),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: article.pills
+                                    .map((p) => Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: c.surface,
+                                            borderRadius: BorderRadius.circular(30),
+                                          ),
+                                          child: Text(p,
+                                              style: _Glass.body(
+                                                  size: 11, weight: FontWeight.w500, color: c.deep)),
+                                        ))
+                                    .toList(),
+                              ),
 
-                                // ── PRIMARY CTA — opens browser ────────────────
-                                SizedBox(
+                              const SizedBox(height: 24),
+                              Divider(height: 1, thickness: .5, color: Colors.white.withOpacity(0.6)),
+                              const SizedBox(height: 20),
+
+                              // ── Source section ─────────────────────────────
+                              Row(children: [
+                                Icon(Icons.verified_outlined, size: 14, color: c.accent),
+                                const SizedBox(width: 6),
+                                Text('Source: ${article.sourceName}',
+                                    style: _Glass.body(size: 12, weight: FontWeight.w700, color: c.deep)),
+                              ]),
+                              const SizedBox(height: 6),
+                              Text(
+                                'This article draws from peer-reviewed research and '
+                                'trusted health publications. Tap the button below '
+                                'to read the full article on ${article.sourceName}.',
+                                style: _Glass.body(
+                                  size: 11,
+                                  color: c.deep.withOpacity(0.7),
+                                ).copyWith(height: 1.5),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // ── PRIMARY CTA — opens browser ────────────────
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _openUrl(context),
+                                  icon: const Icon(Icons.open_in_new_rounded, size: 18, color: Colors.white),
+                                  label: Text(
+                                    'Read full article on ${article.sourceName}',
+                                    style: _Glass.body(size: 14, weight: FontWeight.w600, color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: c.accent,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              // ── URL display — also tappable ────────────────
+                              GestureDetector(
+                                onTap: () => _openUrl(context),
+                                child: Container(
                                   width: double.infinity,
-                                  height: 52,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _openUrl(context),
-                                    icon: const Icon(Icons.open_in_new_rounded, size: 18, color: Colors.white),
-                                    label: Text(
-                                      'Read full article on ${article.sourceName}',
-                                      style: _Glass.body(size: 14, weight: FontWeight.w600, color: Colors.white),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: c.accent,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                      elevation: 0,
-                                    ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: c.surface,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                ),
-
-                                const SizedBox(height: 10),
-
-                                // ── URL display — also tappable ────────────────
-                                GestureDetector(
-                                  onTap: () => _openUrl(context),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: c.surface,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(children: [
-                                      Icon(Icons.link_rounded, size: 16, color: c.accent),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          article.sourceUrl.replaceFirst('https://', '').replaceFirst('www.', ''),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: _Glass.body(size: 12, color: c.accent)
-                                              .copyWith(decoration: TextDecoration.underline, decorationColor: c.accent),
-                                        ),
+                                  child: Row(children: [
+                                    Icon(Icons.link_rounded, size: 16, color: c.accent),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        article.sourceUrl.replaceFirst('https://', '').replaceFirst('www.', ''),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: _Glass.body(size: 12, color: c.accent)
+                                            .copyWith(decoration: TextDecoration.underline, decorationColor: c.accent),
                                       ),
-                                      Icon(Icons.arrow_forward_ios_rounded, size: 11, color: c.accent),
-                                    ]),
-                                  ),
+                                    ),
+                                    Icon(Icons.arrow_forward_ios_rounded, size: 11, color: c.accent),
+                                  ]),
                                 ),
+                              ),
 
-                                const SizedBox(height: 8),
-                              ],
-                            ),
+                              const SizedBox(height: 8),
+                            ],
                           ),
                         ),
                       ),
