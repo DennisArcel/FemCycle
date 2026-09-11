@@ -88,8 +88,7 @@ class _AmbientBackground extends StatelessWidget {
 class CycleEntry {
   final String flow;
   final String energy;
-  final String mood;
-  CycleEntry({required this.flow, required this.energy, required this.mood});
+  CycleEntry({required this.flow, required this.energy});
 }
 
 class MoodMonitoringScreen extends StatefulWidget {
@@ -142,7 +141,7 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
         CoachMarkStep(
           targetKey: _summaryGridKey,
           title: 'Your month at a glance',
-          description: 'Dominant mood and energy, period symptoms, PCOS detection, and your next predicted period — all in one grid.',
+          description: 'Your energy, period symptoms, PCOS detection, and your next predicted period — all in one grid.',
         ),
         CoachMarkStep(
           targetKey: _healthCardKey,
@@ -152,7 +151,7 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
         CoachMarkStep(
           targetKey: _breakdownKey,
           title: 'Daily log',
-          description: 'Every day you\'ve logged this month, broken down by flow, mood, and energy.',
+          description: 'Every day you\'ve logged this month, broken down by flow and energy.',
         ),
       ],
     ).then((_) => TutorialStorageService.markTourSeen(TutorialStorageService.insights));
@@ -186,7 +185,6 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
           loaded[key] = CycleEntry(
             flow: row['flow'] ?? 'Moderate',
             energy: row['energy'] ?? 'Energetic',
-            mood: row['mood'] ?? 'Happy',
           );
         }
         if (!mounted) return;
@@ -231,15 +229,6 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
         for (final e in _ownCycleEntries.entries)
           if (e.key.year == _currentMonth.year && e.key.month == _currentMonth.month) e.key: e.value,
       };
-
-  String get _dominantMood {
-    if (_thisMonthEntries.isEmpty) return '—';
-    final freq = <String, int>{};
-    for (final e in _thisMonthEntries.values) {
-      freq[e.mood] = (freq[e.mood] ?? 0) + 1;
-    }
-    return freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
-  }
 
   String get _dominantEnergy {
     if (_thisMonthEntries.isEmpty) return '—';
@@ -338,24 +327,6 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
   String get _monthLabel {
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     return '${months[_currentMonth.month - 1]} ${_currentMonth.year}';
-  }
-
-  Color _moodColor(String mood) {
-    switch (mood) {
-      case 'Happy': return _Glass.blueDeep;
-      case 'Sad': return _Glass.purple;
-      case 'Irritable': return _Glass.purple;
-      case 'Cry': return _Glass.pink;
-      case 'Calm': return _Glass.blueDeep;
-      case 'Anxious': return _Glass.pink;
-      case 'Tired': return _Glass.inkSoft;
-      case 'Energetic': return _Glass.blue;
-      default: return const Color(0xFFAAAAAA);
-    }
-  }
-
-  Widget _moodDot(String mood, {double size = 9}) {
-    return Container(width: size, height: size, decoration: BoxDecoration(color: _moodColor(mood), shape: BoxShape.circle));
   }
 
   IconData _energyIcon(String e) {
@@ -483,7 +454,7 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
       childAspectRatio: 1.35,
       children: [
         _summaryCard(
-          title: 'Emotion & Energy',
+          title: 'Energy',
           child: _thisMonthEntries.isEmpty
               ? _emptyChip()
               : Column(
@@ -491,14 +462,8 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Row(children: [
-                      _moodDot(_dominantMood),
+                      Icon(_energyIcon(_dominantEnergy), size: 18, color: _Glass.blue),
                       const SizedBox(width: 8),
-                      Flexible(child: Text(_dominantMood, style: _Glass.display(size: 13, color: _Glass.ink), overflow: TextOverflow.ellipsis)),
-                    ]),
-                    const SizedBox(height: 6),
-                    Row(children: [
-                      Icon(_energyIcon(_dominantEnergy), size: 16, color: _Glass.blue),
-                      const SizedBox(width: 6),
                       Flexible(child: Text(_dominantEnergy, style: _Glass.display(size: 13, color: _Glass.ink), overflow: TextOverflow.ellipsis)),
                     ]),
                   ],
@@ -786,10 +751,7 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
                       Icon(Icons.water_drop, size: 14, color: _flowColor(e.flow)),
                       const SizedBox(width: 4),
                       Text(e.flow, style: _Glass.body(size: 12, color: _Glass.inkSoft)),
-                      const SizedBox(width: 12),
-                      _moodDot(e.mood, size: 8),
-                      const SizedBox(width: 5),
-                      Expanded(child: Text(e.mood, style: _Glass.body(size: 12, color: _Glass.inkSoft), overflow: TextOverflow.ellipsis)),
+                      const Spacer(),
                       Icon(_energyIcon(e.energy), size: 14, color: _Glass.blue),
                       const SizedBox(width: 4),
                       Text(e.energy, style: _Glass.body(size: 11, color: const Color(0xFFAAAAAA))),

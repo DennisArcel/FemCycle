@@ -16,15 +16,17 @@ class DiaryEntryScreen extends StatefulWidget {
 class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
-  final _customMoodController = TextEditingController();
 
-  // Multiple moods can now be selected at once.
+  // Multiple moods can be selected at once from the fixed list.
   final Set<int> _selectedMoods = {};
 
-  // "Others" chip: active = chip is toggled on (has or is getting custom
-  // text), editing = currently showing the inline text field.
-  bool _customMoodActive = false;
-  bool _customMoodEditing = false;
+  // Any number of custom "Others" moods the user has typed in and confirmed.
+  final List<String> _customMoods = [];
+  // Controller + flag for the ONE custom mood currently being typed (if any).
+  // Once confirmed, its text moves into _customMoods and this resets, so the
+  // "+ Others" chip is ready to add another.
+  final TextEditingController _newCustomController = TextEditingController();
+  bool _addingCustom = false;
 
   DateTime _selectedDate = DateTime.now();
 
@@ -44,7 +46,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     {'label': '⚡ Energetic', 'color': const Color(0xFF84B2E9), 'bg': const Color(0xFFE4E8FE)},
   ];
 
-  // Colors used for the custom "Others" mood chip.
+  // Colors used for every custom "Others" mood chip.
   static const Color _othersColor = _Glass.purpleDeep;
   static const Color _othersBg = Color(0xFFF3E8FA);
 
@@ -68,8 +70,9 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       }
 
       // The backend stores mood(s) as a single comma-separated string, e.g.
-      // "😊 Happy, 🌸 Calm, feeling nostalgic". Split it back out into the
-      // known mood chips plus (at most) one custom "Others" value.
+      // "😊 Happy, 🌸 Calm, feeling nostalgic, missing my dog". Split it back
+      // out into the known mood chips plus ANY number of custom "Others"
+      // values — every unrecognized token becomes its own custom chip.
       final moodField = widget.entry!['mood'] as String?;
       if (moodField != null && moodField.trim().isNotEmpty) {
         final tokens = moodField
@@ -81,8 +84,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           if (idx != -1) {
             _selectedMoods.add(idx);
           } else {
-            _customMoodActive = true;
-            _customMoodController.text = token;
+            _customMoods.add(token);
           }
         }
       }
@@ -96,7 +98,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
-    _customMoodController.dispose();
+    _newCustomController.dispose();
     super.dispose();
   }
 
@@ -148,6 +150,20 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     );
   }
 
+  // Confirms whatever is currently typed in the "add a custom mood" field:
+  // moves it into _customMoods as its own chip, then resets so the
+  // "+ Others" chip is ready to add another one.
+  void _confirmNewCustomMood() {
+    final text = _newCustomController.text.trim();
+    setState(() {
+      if (text.isNotEmpty) {
+        _customMoods.add(text);
+      }
+      _newCustomController.clear();
+      _addingCustom = false;
+    });
+  }
+
   Future<void> _handleSave() async {
     final title = _titleController.text.trim();
     final body = _bodyController.text.trim();
@@ -157,13 +173,15 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       return;
     }
 
+    // If the user left a custom mood mid-typing without confirming it,
+    // capture it anyway rather than silently discarding it on save.
+    final pendingCustom = _newCustomController.text.trim();
+
     final moodLabels = <String>[
       for (final i in _selectedMoods) _moods[i]['label'] as String,
+      ..._customMoods,
+      if (pendingCustom.isNotEmpty) pendingCustom,
     ];
-    final customText = _customMoodController.text.trim();
-    if (_customMoodActive && customText.isNotEmpty) {
-      moodLabels.add(customText);
-    }
     final mood = moodLabels.isNotEmpty ? moodLabels.join(', ') : null;
 
     setState(() => _isSaving = true);
@@ -301,7 +319,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                           Text('How are you feeling?',
                               style: _Glass.body(size: 12, color: _Glass.textHint)),
                           const SizedBox(height: 4),
-                          Text('Select one or more, or add your own.',
+                          Text('Select one or more, or add your own — you can add several.',
                               style: _Glass.body(size: 11, color: _Glass.textHint)),
                           const SizedBox(height: 8),
                           Wrap(
@@ -309,7 +327,14 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                             runSpacing: 6,
                             children: [
                               ...List.generate(_moods.length, (i) => _buildMoodChip(i)),
-                              _buildOthersChip(),
+                              // One pill per confirmed custom mood, each individually removable.
+                              for (int i = 0; i < _customMoods.length; i++)
+                                _buildCustomMoodChip(i),
+                              // The inline text field, shown only while actively adding one.
+                              if (_addingCustom) _buildCustomMoodInput(),
+                              // "+ Others" — always available so more can be added,
+                              // even after one or several are already set.
+                              if (!_addingCustom) _buildAddOthersChip(),
                             ],
                           ),
                           const SizedBox(height: 20),
@@ -393,100 +418,81 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     );
   }
 
-  Widget _buildOthersChip() {
-    // Not toggled on yet: a plain "+ Others" chip.
-    if (!_customMoodActive) {
-      return GestureDetector(
-        onTap: _isEditing
-            ? () => setState(() {
-                  _customMoodActive = true;
-                  _customMoodEditing = true;
-                })
-            : null,
-        child: _moodPill(
-          isSelected: false,
-          color: _othersColor,
-          bg: _othersBg,
-          label: 'Others',
-        ),
-      );
-    }
+  // A confirmed custom mood, rendered just like a built-in mood chip, with
+  // its own remove (x) button while editing.
+  Widget _buildCustomMoodChip(int i) {
+    final label = _customMoods[i];
+    return _moodPill(
+      isSelected: true,
+      color: _othersColor,
+      bg: _othersBg,
+      label: label,
+      trailing: _isEditing
+          ? GestureDetector(
+              onTap: () => setState(() => _customMoods.removeAt(i)),
+              child: Icon(Icons.close_rounded, size: 13, color: _othersColor),
+            )
+          : null,
+    );
+  }
 
-    // Toggled on and currently typing.
-    if (_customMoodEditing) {
-      return Container(
-        constraints: const BoxConstraints(minWidth: 100, maxWidth: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        decoration: BoxDecoration(
-          color: _othersBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _othersColor, width: 1.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: TextField(
-                controller: _customMoodController,
-                autofocus: true,
-                enabled: _isEditing,
-                maxLength: 24,
-                style: _Glass.body(size: 12, weight: FontWeight.w600, color: _othersColor),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  isCollapsed: true,
-                  counterText: '',
-                  border: InputBorder.none,
-                  hintText: 'Type a feeling',
-                ),
-                onSubmitted: (_) => setState(() => _customMoodEditing = false),
+  // The inline text field shown while the user is actively typing a new
+  // custom mood. Confirming (checkmark or submit) adds it to _customMoods
+  // and returns to the "+ Others" chip so another can be added.
+  Widget _buildCustomMoodInput() {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 100, maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: _othersBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _othersColor, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: TextField(
+              controller: _newCustomController,
+              autofocus: true,
+              enabled: _isEditing,
+              maxLength: 24,
+              style: _Glass.body(size: 12, weight: FontWeight.w600, color: _othersColor),
+              decoration: const InputDecoration(
+                isDense: true,
+                isCollapsed: true,
+                counterText: '',
+                border: InputBorder.none,
+                hintText: 'Type a feeling',
               ),
+              onSubmitted: (_) => _confirmNewCustomMood(),
             ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => setState(() {
-                if (_customMoodController.text.trim().isEmpty) {
-                  _customMoodActive = false;
-                }
-                _customMoodEditing = false;
-              }),
-              child: Icon(Icons.check_rounded, size: 15, color: _othersColor),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Toggled on with saved text: render exactly like the other mood chips.
-    final label = _customMoodController.text.trim();
-    if (label.isEmpty) {
-      return GestureDetector(
-        onTap: _isEditing ? () => setState(() => _customMoodEditing = true) : null,
-        child: _moodPill(isSelected: false, color: _othersColor, bg: _othersBg, label: 'Others'),
-      );
-    }
-
-    return GestureDetector(
-      onTap: _isEditing ? () => setState(() => _customMoodEditing = true) : null,
-      child: _moodPill(
-        isSelected: true,
-        color: _othersColor,
-        bg: _othersBg,
-        label: label,
-        trailing: _isEditing
-            ? GestureDetector(
-                onTap: () => setState(() {
-                  _customMoodActive = false;
-                  _customMoodController.clear();
-                }),
-                child: Icon(Icons.close_rounded, size: 13, color: _othersColor),
-              )
-            : null,
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: _confirmNewCustomMood,
+            child: Icon(Icons.check_rounded, size: 15, color: _othersColor),
+          ),
+        ],
       ),
     );
   }
 
-  /// Shared pill styling so the built-in moods and the custom "Others" mood
+  // The "+ Others" chip — always shown when not currently typing, so the
+  // user can add a first custom mood, or another one after already adding some.
+  Widget _buildAddOthersChip() {
+    return GestureDetector(
+      onTap: _isEditing ? () => setState(() => _addingCustom = true) : null,
+      child: _moodPill(
+        isSelected: false,
+        color: _othersColor,
+        bg: _othersBg,
+        label: _customMoods.isEmpty ? 'Others' : '+ Add another',
+      ),
+    );
+  }
+
+  /// Shared pill styling so built-in moods and every custom "Others" mood
   /// look identical once selected.
   Widget _moodPill({
     required bool isSelected,

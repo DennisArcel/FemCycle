@@ -312,9 +312,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _buildTextField(controller: _firstNameController, hint: 'First Name'),
               const SizedBox(height: 16),
 
-              _buildLabel('Middle Name'),
+              _buildLabel('Middle Name (OPTIONAL)'),
               const SizedBox(height: 6),
-              _buildTextField(controller: _middleNameController, hint: 'Middle Name'),
+              _buildTextField(controller: _middleNameController, hint: 'Middle Name (OPTIONAL)'),
               const SizedBox(height: 16),
 
               _buildLabel('Last Name'),

@@ -14,6 +14,10 @@ import '../screens/lifestyle_screen.dart';
 // Uses pushReplacement (swap) instead of push (stack), so tapping between
 // tabs never builds up a deep back-stack, and every screen always has this
 // same bar rather than losing it entirely once you leave Home.
+//
+// Tab switches use a zero-duration PageRouteBuilder instead of the default
+// MaterialPageRoute slide/fade, so switching tabs feels instant rather than
+// animated.
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
   final VoidCallback? onAddPressed;
@@ -23,6 +27,16 @@ class AppBottomNav extends StatelessWidget {
     required this.currentIndex,
     this.onAddPressed,
   });
+
+  // Shared no-transition route builder used by both _go() and _goToAddSheet().
+  Route _noTransitionRoute(Widget screen) {
+    return PageRouteBuilder(
+      pageBuilder: (_, __, ___) => screen,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    );
+  }
+
   void _go(BuildContext context, int index) {
     if (index == currentIndex) return; // already here — no-op, avoids a pointless rebuild
 
@@ -50,10 +64,7 @@ class AppBottomNav extends StatelessWidget {
         return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.pushReplacement(context, _noTransitionRoute(screen));
   }
 
   // Tapping "+" from any tab jumps to Home with the add-period sheet already
@@ -68,9 +79,7 @@ class AppBottomNav extends StatelessWidget {
     // From other screens, go to Home and automatically open Add Cycle.
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => const HomeScreen(autoOpenAddSheet: true),
-      ),
+      _noTransitionRoute(const HomeScreen(autoOpenAddSheet: true)),
     );
   }
 
@@ -78,17 +87,20 @@ class AppBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Theme.of(context).cardColor,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(context, 0, Icons.sentiment_satisfied_outlined, 'Insights'),
-          _navItem(context, 1, Icons.book_outlined, 'Diary'),
-          _navItem(context, 2, Icons.calendar_month_outlined, 'Cycle'),
-          _navItem(context, 3, Icons.medical_services_outlined, 'Check-up'),
-          _navItem(context, 4, Icons.menu_book_outlined, 'Learn'),
-          _navItem(context, 5, Icons.self_improvement_outlined, 'Lifestyle'),
-        ],
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _navItem(context, 0, Icons.sentiment_satisfied_outlined, 'Insights'),
+            _navItem(context, 1, Icons.book_outlined, 'Diary'),
+            _navItem(context, 2, Icons.calendar_month_outlined, 'Cycle'),
+            _navItem(context, 3, Icons.medical_services_outlined, 'Check-up'),
+            _navItem(context, 4, Icons.menu_book_outlined, 'Learn'),
+            _navItem(context, 5, Icons.self_improvement_outlined, 'Lifestyle'),
+          ],
+        ),
       ),
     );
   }
