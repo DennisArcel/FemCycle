@@ -43,13 +43,13 @@ class AppBottomNav extends StatelessWidget {
     late Widget screen;
     switch (index) {
       case 0:
-        screen = const MoodMonitoringScreen();
+        screen = const HomeScreen();
         break;
       case 1:
         screen = const DiaryScreen();
         break;
       case 2:
-        screen = const HomeScreen();
+        screen = const MoodMonitoringScreen();
         break;
       case 3:
         screen = const CheckupScreen();
@@ -93,9 +93,9 @@ class AppBottomNav extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(context, 0, Icons.sentiment_satisfied_outlined, 'Insights'),
+            _navItem(context, 0, Icons.calendar_month_outlined, 'Cycle'),
             _navItem(context, 1, Icons.book_outlined, 'Diary'),
-            _navItem(context, 2, Icons.calendar_month_outlined, 'Cycle'),
+            _navItem(context, 2, Icons.sentiment_satisfied_outlined, 'Insights'),
             _navItem(context, 3, Icons.medical_services_outlined, 'Check-up'),
             _navItem(context, 4, Icons.menu_book_outlined, 'Learn'),
             _navItem(context, 5, Icons.self_improvement_outlined, 'Lifestyle'),

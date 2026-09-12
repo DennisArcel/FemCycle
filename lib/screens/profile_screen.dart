@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'account_info_screen.dart';
 import 'change_password_screen.dart';
 import 'health_profile_screen.dart';
@@ -11,16 +9,6 @@ import 'login_screen.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
-
-// NOTE: to actually persist the picture, add a method to ApiService
-// following the pattern of your other endpoints, e.g.:
-//
-//   static Future<Map<String, dynamic>> uploadAvatar(File file) async {
-//     ... multipart POST /user/avatar, field name 'avatar' ...
-//   }
-//
-// Once that exists, call it from _pickAvatar() below (marked with a TODO)
-// so the picked image is actually saved server-side, not just shown locally.
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,10 +21,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _displayName = '';
   String _displayEmail = '';
   bool _isLoading = true;
-
-  final ImagePicker _picker = ImagePicker();
-  File? _pickedAvatar;
-  bool _isUploadingAvatar = false;
 
   // ── Notifications toggle state ────────────────────────────────────────────
   bool _notificationsEnabled = true;
@@ -73,41 +57,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
-  }
-
-  Future<void> _pickAvatar() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _AvatarSourceSheet(
-        onPick: (s) => Navigator.pop(ctx, s),
-      ),
-    );
-    if (source == null) return;
-
-    final picked = await _picker.pickImage(
-      source: source,
-      maxWidth: 800,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
-
-    setState(() {
-      _pickedAvatar = File(picked.path);
-    });
-
-    // TODO: once ApiService.uploadAvatar exists (see NOTE at top of file),
-    // upload it here, e.g.:
-    //
-    // setState(() => _isUploadingAvatar = true);
-    // final result = await ApiService.uploadAvatar(_pickedAvatar!);
-    // if (!mounted) return;
-    // setState(() => _isUploadingAvatar = false);
-    // if (result['success'] != true) {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    //     content: Text(result['message'] ?? 'Could not upload photo.'),
-    //   ));
-    // }
   }
 
   Future<void> _loadProfile() async {
@@ -188,55 +137,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text('Profile', style: _Glass.heading(size: 22, weight: FontWeight.w700)),
         const SizedBox(height: 20),
-        GestureDetector(
-          onTap: _isUploadingAvatar ? null : _pickAvatar,
-          child: Stack(
-            children: [
-              _Glass.frostedCircle(
-                size: 100,
-                child: _pickedAvatar != null
-                    ? Image.file(_pickedAvatar!, fit: BoxFit.cover)
-                    : Image.asset(
-                        'assets/images/avatar.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFF5D5A0).withOpacity(0.6),
-                          child: Icon(Icons.person, size: 55, color: _Glass.pinkDeep),
-                        ),
-                      ),
-              ),
-              if (_isUploadingAvatar)
-                Positioned.fill(
-                  child: ClipOval(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.35),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 26,
-                          height: 26,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              Positioned(
-                bottom: 2,
-                right: 2,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                        colors: [_Glass.purpleDeep, _Glass.blueDeep]),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(Icons.edit, color: Colors.white, size: 14),
-                ),
-              ),
-            ],
+        // Static default avatar — no upload/edit affordance.
+        _Glass.frostedCircle(
+          size: 100,
+          child: Image.asset(
+            'assets/images/avatar.png',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: const Color(0xFFF5D5A0).withOpacity(0.6),
+              child: Icon(Icons.person, size: 55, color: _Glass.pinkDeep),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -603,95 +513,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Glass bottom sheet offering Camera / Gallery / Cancel for picking a new
-/// profile picture. Purely presentational — the choice is returned to the
-/// caller via Navigator.pop, no state of its own besides the tap.
-class _AvatarSourceSheet extends StatelessWidget {
-  final ValueChanged<ImageSource> onPick;
-
-  const _AvatarSourceSheet({required this.onPick});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: _Glass.card(
-        radius: 24,
-        padding: const EdgeInsets.all(20),
-        opacity: 0.85,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: _Glass.textHint.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text('Update profile photo',
-                style: _Glass.heading(size: 17, weight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text('Choose a new picture',
-                style: _Glass.body(size: 12, color: _Glass.textMuted)),
-            const SizedBox(height: 16),
-            _sourceTile(
-              icon: Icons.photo_camera_outlined,
-              label: 'Take a photo',
-              onTap: () => onPick(ImageSource.camera),
-            ),
-            const SizedBox(height: 8),
-            _sourceTile(
-              icon: Icons.photo_library_outlined,
-              label: 'Choose from gallery',
-              onTap: () => onPick(ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sourceTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    colors: [_Glass.purpleDeep, _Glass.blueDeep]),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: Colors.white, size: 17),
-            ),
-            const SizedBox(width: 12),
-            Text(label, style: _Glass.body(size: 14, weight: FontWeight.w600)),
-          ],
-        ),
       ),
     );
   }

@@ -518,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                AppBottomNav(
-                  currentIndex: 2,
+                  currentIndex: 0,
                   onAddPressed: _showAddPeriodSheet,
                 ),
               ],

@@ -1,133 +1,50 @@
 import 'package:flutter/material.dart';
-import '../screens/home_screen.dart';
-import '../screens/diary_screen.dart';
-import '../screens/mood_monitoring_screen.dart';
-import '../screens/checkup_screen.dart';
-import '../screens/educational_screen.dart';
-import '../screens/lifestyle_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'screens/splash_screen.dart';
+import 'theme/theme_provider.dart';
+import 'services/notification_service.dart';
 
-// Shared bottom navigation bar used by Home, Diary, Mood, Checkup, Learn,
-// and Lifestyle. Each screen declares its OWN fixed index (a constant, not
-// shared mutable state) — that's what makes the highlight always correct:
-// there's no cross-screen state to fall out of sync.
-//
-// Uses pushReplacement (swap) instead of push (stack), so tapping between
-// tabs never builds up a deep back-stack, and every screen always has this
-// same bar rather than losing it entirely once you leave Home.
-//
-// Tab switches use a zero-duration PageRouteBuilder instead of the default
-// MaterialPageRoute slide/fade, so switching tabs feels instant rather than
-// animated.
-class AppBottomNav extends StatelessWidget {
-  final int currentIndex;
-  final VoidCallback? onAddPressed;
+void main() async {
+  // Ensure Flutter engine bindings are initialized before calling native code
+  WidgetsFlutterBinding.ensureInitialized();
 
-  const AppBottomNav({
-    super.key,
-    required this.currentIndex,
-    this.onAddPressed,
-  });
-
-  // Shared no-transition route builder used by both _go() and _goToAddSheet().
-  Route _noTransitionRoute(Widget screen) {
-    return PageRouteBuilder(
-      pageBuilder: (_, __, ___) => screen,
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
+  // Initialize Firebase with the CLI-generated options,
+  // but only if it hasn't already been initialized natively
+  // (google-services.json on Android auto-registers a default app).
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
     );
   }
 
-  void _go(BuildContext context, int index) {
-    if (index == currentIndex) return; // already here — no-op, avoids a pointless rebuild
+  // Set up timezone data fresh on every app start, so zonedSchedule() always
+  // uses the device's current timezone — not a value cached from whenever
+  // the user last logged in.
+  await NotificationService.initializeTimeZoneData();
 
-    late Widget screen;
-    switch (index) {
-      case 0:
-        screen = const MoodMonitoringScreen();
-        break;
-      case 1:
-        screen = const DiaryScreen();
-        break;
-      case 2:
-        screen = const HomeScreen();
-        break;
-      case 3:
-        screen = const CheckupScreen();
-        break;
-      case 4:
-        screen = const EducationalScreen();
-        break;
-      case 5:
-        screen = const LifestyleScreen();
-        break;
-      default:
-        return;
-    }
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const FemCycleApp(),
+    ),
+  );
+}
 
-    Navigator.pushReplacement(context, _noTransitionRoute(screen));
-  }
-
-  // Tapping "+" from any tab jumps to Home with the add-period sheet already
-  // open, via HomeScreen's autoOpenAddSheet flag — see home_screen.dart.
-  void _goToAddSheet(BuildContext context) {
-  // If we're already on Home, use HomeScreen's own Add Cycle function.
-  if (currentIndex == 0 && onAddPressed != null) {
-    onAddPressed!();
-    return;
-  }
-
-    // From other screens, go to Home and automatically open Add Cycle.
-    Navigator.pushReplacement(
-      context,
-      _noTransitionRoute(const HomeScreen(autoOpenAddSheet: true)),
-    );
-  }
+class FemCycleApp extends StatelessWidget {
+  const FemCycleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).cardColor,
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _navItem(context, 0, Icons.sentiment_satisfied_outlined, 'Insights'),
-            _navItem(context, 1, Icons.book_outlined, 'Diary'),
-            _navItem(context, 2, Icons.calendar_month_outlined, 'Cycle'),
-            _navItem(context, 3, Icons.medical_services_outlined, 'Check-up'),
-            _navItem(context, 4, Icons.menu_book_outlined, 'Learn'),
-            _navItem(context, 5, Icons.self_improvement_outlined, 'Lifestyle'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(BuildContext context, int index, IconData icon, String label) {
-    final isActive = currentIndex == index;
-    return GestureDetector(
-      onTap: () => _go(context, index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 22,
-            color: isActive ? const Color(0xFF84B2E9) : const Color(0xFFAAAAAA),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontFamily: 'Mallanna',
-              color: isActive ? const Color(0xFF84B2E9) : const Color(0xFFAAAAAA),
-            ),
-          ),
-        ],
-      ),
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return MaterialApp(
+      title: 'FemCycle',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeProvider.lightTheme,
+      darkTheme: ThemeProvider.darkTheme,
+      themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      home: const SplashScreen(),
     );
   }
 }

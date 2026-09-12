@@ -163,12 +163,16 @@ class NotificationService {
   }
 
   /// Schedules the two reminders for a checkup:
-  /// - Day before, 12:00 PM
-  /// - Day of, 2 hours before the checkup's time (falls back to 7:00 AM
-  ///   if no time was set on the checkup)
+  /// - "Day before": exactly 24 hours before the appointment's scheduled
+  ///   time (falls back to treating the appointment as noon if no time
+  ///   was set on the checkup).
+  /// - Day of: 2 hours before the checkup's time (falls back to 7:00 AM
+  ///   if no time was set on the checkup).
   ///
   /// Any reminder time that has already passed (e.g. checkup added same-day,
-  /// after the reminder window) is silently skipped rather than erroring.
+  /// after the reminder window) is silently skipped rather than erroring —
+  /// but logged either way, so you can tell scheduled vs. skipped from the
+  /// console.
   /// If the user has notifications turned off, this is a no-op — nothing
   /// gets scheduled until they turn the toggle back on.
   static Future<void> scheduleCheckupReminders({
@@ -195,11 +199,22 @@ class NotificationService {
     final dateOnly = DateTime(date.year, date.month, date.day);
     final now = tz.TZDateTime.now(tz.local);
 
-    // ── Day-before reminder, fixed at 12:00 PM ──
-    final dayBefore = dateOnly.subtract(const Duration(days: 1));
-    final dayBeforeSchedule = tz.TZDateTime(
-      tz.local, dayBefore.year, dayBefore.month, dayBefore.day, 12, 0,
-    );
+    // Parsed once, reused by both reminders — the actual appointment
+    // date+time, falling back to noon if no time was set.
+    final parsedTime = _parseTimeString(time);
+    final appointmentDateTime = parsedTime != null
+        ? tz.TZDateTime(
+            tz.local, dateOnly.year, dateOnly.month, dateOnly.day,
+            parsedTime.$1, parsedTime.$2,
+          )
+        : tz.TZDateTime(
+            tz.local, dateOnly.year, dateOnly.month, dateOnly.day, 12, 0,
+          );
+
+    // ── "Day before" reminder — exactly 24 hours before the appointment ──
+    final dayBeforeSchedule =
+        appointmentDateTime.subtract(const Duration(hours: 24));
+    print('📅 dayBeforeSchedule=$dayBeforeSchedule, now=$now, willFire=${dayBeforeSchedule.isAfter(now)}');
     if (dayBeforeSchedule.isAfter(now)) {
       await _localNotifications.zonedSchedule(
         _dayBeforeId(checkupId),
@@ -219,18 +234,15 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
+    } else {
+      print('📅 Day-before SKIPPED — schedule=$dayBeforeSchedule is not after now=$now');
     }
 
     // ── Day-of reminder, 2 hours before the checkup time (or 7:00 AM) ──
-    final parsedTime = _parseTimeString(time);
     tz.TZDateTime dayOfSchedule;
     String dayOfBody;
 
     if (parsedTime != null) {
-      final appointmentDateTime = tz.TZDateTime(
-        tz.local, dateOnly.year, dateOnly.month, dateOnly.day,
-        parsedTime.$1, parsedTime.$2,
-      );
       dayOfSchedule = appointmentDateTime.subtract(const Duration(hours: 2));
       dayOfBody = '$title is today at $time.';
     } else {
@@ -266,6 +278,8 @@ class NotificationService {
         print('📅 zonedSchedule THREW: $e');
         print('📅 stack: $st');
       }
+    } else {
+      print('📅 Day-of SKIPPED — schedule=$dayOfSchedule is not after now=$now');
     }
 
     // Dump whatever is actually queued with the OS right now, so we can
