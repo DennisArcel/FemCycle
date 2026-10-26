@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +5,7 @@ import 'article_detail_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/coach_mark_overlay.dart';
 import '../services/tutorial_storage_service.dart';
+import '../widgets/glass.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA MODELS
@@ -1186,11 +1186,11 @@ class _EducationalScreenState extends State<EducationalScreen> {
   ];
 
   static const Map<String, Color> _tabColors = {
-    'All':           _Glass.blueDeep,
-    'Cycle':         _Glass.pinkDeep,
+    'All':           Glass.blueDeep,
+    'Cycle':         Glass.pinkDeep,
     'PCOS':          Color(0xFFA865C0),
     'Nutrition':     Color(0xFF3BAF7E),
-    'Mental Health': _Glass.blueDeep,
+    'Mental Health': Glass.blueDeep,
     'Lifestyle':     Color(0xFFD4843A),
   };
 
@@ -1266,11 +1266,11 @@ class _EducationalScreenState extends State<EducationalScreen> {
   Widget build(BuildContext context) {
     final list = _filtered;
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       bottomNavigationBar: const AppBottomNav(currentIndex: 4),
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -1302,10 +1302,10 @@ class _EducationalScreenState extends State<EducationalScreen> {
                               padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
                               child: Text(
                                 'MORE READS',
-                                style: _Glass.body(
+                                style: Glass.body(
                                   size: 11,
                                   weight: FontWeight.w700,
-                                  color: _Glass.textHint,
+                                  color: Glass.textHint,
                                 ).copyWith(letterSpacing: .8),
                               ),
                             ),
@@ -1332,11 +1332,11 @@ class _EducationalScreenState extends State<EducationalScreen> {
 
   Widget _topBar() => Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-        child: _Glass.card(
+        child: Glass.card(
           radius: 18,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(children: [
-            Text('Learn', style: _Glass.heading(size: 18, weight: FontWeight.w600)),
+            Text('Learn', style: Glass.heading(size: 18, weight: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
               onTap: _startCoachTour,
@@ -1344,11 +1344,11 @@ class _EducationalScreenState extends State<EducationalScreen> {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: _Glass.blue.withOpacity(0.2),
+                  color: Glass.blue.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
+                child: Icon(Icons.question_mark_rounded, size: 15, color: Glass.blueDeep),
               ),
             ),
           ]),
@@ -1363,16 +1363,16 @@ class _EducationalScreenState extends State<EducationalScreen> {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
         child: Row(children: [
-          Icon(Icons.search, color: _Glass.textMuted, size: 18),
+          Icon(Icons.search, color: Glass.textMuted, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _searchController,
               onChanged: (v) => setState(() => _searchQuery = v),
-              style: _Glass.body(size: 13),
+              style: Glass.body(size: 13),
               decoration: InputDecoration(
                 hintText: 'Search topics, articles...',
-                hintStyle: _Glass.body(size: 13, color: _Glass.textHint),
+                hintStyle: Glass.body(size: 13, color: Glass.textHint),
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -1389,7 +1389,7 @@ class _EducationalScreenState extends State<EducationalScreen> {
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (_, i) {
             final isActive = _selectedTab == i;
-            final col = _tabColors[_tabs[i]] ?? _Glass.blueDeep;
+            final col = _tabColors[_tabs[i]] ?? Glass.blueDeep;
             return GestureDetector(
               onTap: () => setState(() => _selectedTab = i),
               child: AnimatedContainer(
@@ -1402,10 +1402,10 @@ class _EducationalScreenState extends State<EducationalScreen> {
                       color: isActive ? col : Colors.white.withOpacity(0.7)),
                 ),
                 child: Text(_tabs[i],
-                    style: _Glass.body(
+                    style: Glass.body(
                       size: 12,
                       weight: FontWeight.w600,
-                      color: isActive ? Colors.white : _Glass.textMuted,
+                      color: isActive ? Colors.white : Glass.textMuted,
                     )),
               ),
             );
@@ -1417,7 +1417,7 @@ class _EducationalScreenState extends State<EducationalScreen> {
     final c = colorOf(a.colorKey);
     return GestureDetector(
       onTap: () => _openArticle(a),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 20,
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1427,12 +1427,12 @@ class _EducationalScreenState extends State<EducationalScreen> {
               decoration: BoxDecoration(
                   color: c.deep, borderRadius: BorderRadius.circular(30)),
               child: Text(a.tag,
-                  style: _Glass.body(
+                  style: Glass.body(
                       size: 10, weight: FontWeight.w600, color: Colors.white)),
             ),
             const SizedBox(width: 8),
             Text("Editor's pick",
-                style: _Glass.body(
+                style: Glass.body(
                   size: 10,
                   weight: FontWeight.w700,
                   color: c.accent,
@@ -1440,16 +1440,16 @@ class _EducationalScreenState extends State<EducationalScreen> {
           ]),
           const SizedBox(height: 10),
           Text(a.title,
-              style: _Glass.heading(
+              style: Glass.heading(
                 size: 21,
                 weight: FontWeight.w700,
-                color: _Glass.textDark,
+                color: Glass.textDark,
               ).copyWith(height: 1.22)),
           const SizedBox(height: 8),
           Text(a.desc,
-              style: _Glass.body(
+              style: Glass.body(
                 size: 13,
-                color: _Glass.textMuted,
+                color: Glass.textMuted,
               ).copyWith(height: 1.6)),
           const SizedBox(height: 14),
           Row(children: [
@@ -1465,10 +1465,10 @@ class _EducationalScreenState extends State<EducationalScreen> {
             const SizedBox(width: 8),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('FemCycle Health',
-                  style: _Glass.body(
-                      size: 11, weight: FontWeight.w600, color: _Glass.textMuted)),
+                  style: Glass.body(
+                      size: 11, weight: FontWeight.w600, color: Glass.textMuted)),
               Text(a.readTime,
-                  style: _Glass.body(size: 11, color: _Glass.textHint)),
+                  style: Glass.body(size: 11, color: Glass.textHint)),
             ]),
             const Spacer(),
             GestureDetector(
@@ -1480,7 +1480,7 @@ class _EducationalScreenState extends State<EducationalScreen> {
                     color: c.accent,
                     borderRadius: BorderRadius.circular(30)),
                 child: Text('Read article',
-                    style: _Glass.body(
+                    style: Glass.body(
                         size: 12, weight: FontWeight.w600, color: Colors.white)),
               ),
             ),
@@ -1522,29 +1522,29 @@ class _EducationalScreenState extends State<EducationalScreen> {
     final c = colorOf(a.colorKey);
     return GestureDetector(
       onTap: () => _openArticle(a),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 16,
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(a.tag.toUpperCase(),
-                  style: _Glass.body(
+                  style: Glass.body(
                     size: 9,
                     weight: FontWeight.w700,
                     color: c.accent,
                   ).copyWith(letterSpacing: .5)),
               const SizedBox(height: 3),
               Text(a.title,
-                  style: _Glass.heading(
+                  style: Glass.heading(
                     size: 13,
                     weight: FontWeight.w700,
-                    color: _Glass.textDark,
+                    color: Glass.textDark,
                   ).copyWith(height: 1.3)),
               const SizedBox(height: 6),
               Row(children: [
-                Icon(Icons.access_time_rounded, size: 10, color: _Glass.textHint),
+                Icon(Icons.access_time_rounded, size: 10, color: Glass.textHint),
                 const SizedBox(width: 3),
                 Text(a.readTime,
-                    style: _Glass.body(size: 10, color: _Glass.textHint)),
+                    style: Glass.body(size: 10, color: Glass.textHint)),
               ]),
         ]),
       ),
@@ -1555,37 +1555,37 @@ class _EducationalScreenState extends State<EducationalScreen> {
     final c = colorOf(a.colorKey);
     return GestureDetector(
       onTap: () => _openArticle(a),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 16,
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(a.tag.toUpperCase(),
-                  style: _Glass.body(
+                  style: Glass.body(
                     size: 9,
                     weight: FontWeight.w700,
                     color: c.accent,
                   ).copyWith(letterSpacing: .5)),
               const SizedBox(height: 3),
               Text(a.title,
-                  style: _Glass.heading(
+                  style: Glass.heading(
                     size: 14,
                     weight: FontWeight.w700,
-                    color: _Glass.textDark,
+                    color: Glass.textDark,
                   ).copyWith(height: 1.3)),
               const SizedBox(height: 4),
               Text(a.desc,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: _Glass.body(
+                  style: Glass.body(
                     size: 12,
-                    color: _Glass.textMuted,
+                    color: Glass.textMuted,
                   ).copyWith(height: 1.5)),
               const SizedBox(height: 6),
               Row(children: [
-                Icon(Icons.access_time_rounded, size: 10, color: _Glass.textHint),
+                Icon(Icons.access_time_rounded, size: 10, color: Glass.textHint),
                 const SizedBox(width: 3),
                 Text(a.readTime,
-                    style: _Glass.body(size: 10, color: _Glass.textHint)),
+                    style: Glass.body(size: 10, color: Glass.textHint)),
               ]),
         ]),
       ),
@@ -1596,157 +1596,11 @@ class _EducationalScreenState extends State<EducationalScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off_rounded, size: 40, color: _Glass.textHint),
+            const Icon(Icons.search_off_rounded, size: 40, color: Glass.textHint),
             const SizedBox(height: 12),
             Text('No articles found',
-                style: _Glass.body(size: 15, color: _Glass.textMuted)),
+                style: Glass.body(size: 15, color: Glass.textMuted)),
           ],
         ),
       );
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static ButtonStyle primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: blueDeep,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: blueDeep.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 0,
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      ),
-    );
-  }
 }

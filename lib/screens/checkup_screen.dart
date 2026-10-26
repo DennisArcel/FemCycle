@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -9,6 +8,13 @@ import '../widgets/app_bottom_nav.dart';
 import '../services/notification_service.dart';
 import '../widgets/coach_mark_overlay.dart';
 import '../services/tutorial_storage_service.dart';
+import '../widgets/glass.dart';
+import 'checkup_types.dart';
+
+// Re-export so any other file that imports checkup_screen.dart and uses
+// kSuggestions / CheckupSuggestion keeps working.
+export 'checkup_types.dart';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MODEL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,116 +94,6 @@ class Checkup {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHECKUP TYPE SUGGESTIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-class CheckupSuggestion {
-  final String title;
-  final String icon;
-  final String frequency;
-  final String note;
-  const CheckupSuggestion({
-    required this.title,
-    required this.icon,
-    required this.frequency,
-    required this.note,
-  });
-}
-
-const List<CheckupSuggestion> kSuggestions = [
-  CheckupSuggestion(
-    title: 'OB-GYN Consultation',
-    icon: '👩‍⚕️',
-    frequency: 'Yearly',
-    note: 'Annual well-woman exam',
-  ),
-  CheckupSuggestion(
-    title: 'Pap Smear',
-    icon: '🔬',
-    frequency: 'Every 3 years',
-    note: 'Cervical cancer screening',
-  ),
-  CheckupSuggestion(
-    title: 'Self Breast Exam',
-    icon: '🎗️',
-    frequency: 'Monthly',
-    note: 'Best done after your period',
-  ),
-  CheckupSuggestion(
-    title: 'Clinical Breast Exam',
-    icon: '🏥',
-    frequency: 'Yearly',
-    note: 'By a healthcare professional',
-  ),
-  CheckupSuggestion(
-    title: 'Blood Test',
-    icon: '🩸',
-    frequency: 'Yearly',
-    note: 'CBC, iron, hormone levels',
-  ),
-  CheckupSuggestion(
-    title: 'Hormone Panel',
-    icon: '⚗️',
-    frequency: 'As needed',
-    note: 'Estrogen, progesterone, thyroid',
-  ),
-  CheckupSuggestion(
-    title: 'Pelvic Ultrasound',
-    icon: '📡',
-    frequency: 'As advised',
-    note: 'For PCOS or fibroid monitoring',
-  ),
-  CheckupSuggestion(
-    title: 'STI Screening',
-    icon: '🛡️',
-    frequency: 'Yearly',
-    note: 'Recommended for all active women',
-  ),
-  CheckupSuggestion(
-    title: 'Blood Pressure Check',
-    icon: '💓',
-    frequency: 'Yearly',
-    note: 'Track cardiovascular health',
-  ),
-  CheckupSuggestion(
-    title: 'Dental Check-up',
-    icon: '🦷',
-    frequency: 'Every 6 months',
-    note: 'Hormones affect gum health',
-  ),
-  CheckupSuggestion(
-    title: 'Eye Exam',
-    icon: '👁️',
-    frequency: 'Every 2 years',
-    note: 'Vision changes with hormones',
-  ),
-  CheckupSuggestion(
-    title: 'Skin Check',
-    icon: '🧴',
-    frequency: 'Yearly',
-    note: 'Dermatologist screening',
-  ),
-  CheckupSuggestion(
-    title: 'Mental Health Check-in',
-    icon: '🧠',
-    frequency: 'As needed',
-    note: 'Therapy or counseling session',
-  ),
-  CheckupSuggestion(
-    title: 'Nutritionist Visit',
-    icon: '🥗',
-    frequency: 'As needed',
-    note: 'For cycle & hormonal nutrition',
-  ),
-  CheckupSuggestion(
-    title: 'Vitamin D Test',
-    icon: '☀️',
-    frequency: 'Yearly',
-    note: 'Deficiency affects cycle health',
-  ),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
 // SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -211,12 +107,10 @@ class CheckupScreen extends StatefulWidget {
 class _CheckupScreenState extends State<CheckupScreen> {
   final DateTime _today = DateTime.now();
   late DateTime _currentMonth;
-  int _selectedFilter = 0; // 0=All 1=Upcoming 2=Overdue 3=Done
 
   // ── Coach-mark tour targets ──
   final GlobalKey _calendarKey = GlobalKey();
   final GlobalKey _summaryKey = GlobalKey();
-  final GlobalKey _filtersKey = GlobalKey();
   final GlobalKey _addButtonKey = GlobalKey();
 
   List<Checkup> _checkups = [
@@ -277,7 +171,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
       _showSnack(
         'Failed to load check-ups (${response.statusCode})',
-        _Glass.pinkDeep,
+        Glass.pinkDeep,
       );
     }
   } catch (e) {
@@ -329,12 +223,12 @@ class _CheckupScreenState extends State<CheckupScreen> {
         return true;
       } else {
         _showSnack('Failed to save check-up (${response.statusCode})',
-            _Glass.pinkDeep);
+            Glass.pinkDeep);
         return false;
       }
     } catch (_) {
       _showSnack('Error connecting to FemCycle server',
-          _Glass.pinkDeep);
+          Glass.pinkDeep);
       return false;
     }
   }
@@ -363,13 +257,13 @@ class _CheckupScreenState extends State<CheckupScreen> {
         return true;
       } else {
         _showSnack('Failed to update check-up (${response.statusCode})',
-            _Glass.pinkDeep);
+            Glass.pinkDeep);
         await _fetchCheckups(); // resync in case local state drifted
         return false;
       }
     } catch (_) {
       _showSnack('Error connecting to FemCycle server',
-          _Glass.pinkDeep);
+          Glass.pinkDeep);
       return false;
     }
   }
@@ -384,12 +278,12 @@ class _CheckupScreenState extends State<CheckupScreen> {
         _fetchCheckups();
       } else {
         _showSnack('Failed to delete check-up (${response.statusCode})',
-            _Glass.pinkDeep);
+            Glass.pinkDeep);
         _fetchCheckups();
       }
     } catch (_) {
       _showSnack('Error connecting to FemCycle server',
-          _Glass.pinkDeep);
+          Glass.pinkDeep);
     }
   }
 
@@ -414,19 +308,14 @@ class _CheckupScreenState extends State<CheckupScreen> {
       context: context,
       steps: [
         CoachMarkStep(
-          targetKey: _calendarKey,
-          title: 'Check-up calendar',
-          description: 'Scheduled visits show up on their date here, color-coded by status.',
-        ),
-        CoachMarkStep(
           targetKey: _summaryKey,
           title: 'At a glance',
           description: 'A quick count of what\'s upcoming, overdue, or already done.',
         ),
         CoachMarkStep(
-          targetKey: _filtersKey,
-          title: 'Filter your list',
-          description: 'Narrow the list below to just Upcoming, Overdue, or Done check-ups.',
+          targetKey: _calendarKey,
+          title: 'Check-up calendar',
+          description: 'Scheduled visits show up on their date here, color-coded by status. Tap a day to see or edit its check-ups.',
         ),
         CoachMarkStep(
           targetKey: _addButtonKey,
@@ -448,15 +337,6 @@ class _CheckupScreenState extends State<CheckupScreen> {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-
-  List<Checkup> get _filteredCheckups {
-    final filters = ['', 'upcoming', 'overdue', 'done'];
-    final f = filters[_selectedFilter];
-    return _checkups
-        .where((c) => f.isEmpty || c.status == f)
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-  }
 
   List<Checkup> get _thisMonthCheckups => _checkups
       .where((c) =>
@@ -482,17 +362,17 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   Color _statusBg(String s) {
     switch (s) {
-      case 'overdue': return _Glass.pink.withOpacity(0.25);
+      case 'overdue': return Glass.pink.withOpacity(0.25);
       case 'done': return const Color(0xFF3BAF7E).withOpacity(0.18);
-      default: return _Glass.blue.withOpacity(0.25);
+      default: return Glass.blue.withOpacity(0.25);
     }
   }
 
   Color _statusColor(String s) {
     switch (s) {
-      case 'overdue': return _Glass.pinkDeep;
+      case 'overdue': return Glass.pinkDeep;
       case 'done': return const Color(0xFF1D9E75);
-      default: return _Glass.blueDeep;
+      default: return Glass.blueDeep;
     }
   }
 
@@ -545,7 +425,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   void _markDone(Checkup c) {
     if (_isFutureDate(c.date)) {
-      _showSnack("Can't mark a future check-up as done yet", _Glass.pinkDeep);
+      _showSnack("Can't mark a future check-up as done yet", Glass.pinkDeep);
       return;
     }
     setState(() => c.status = 'done');
@@ -555,19 +435,19 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   void _markUpcoming(Checkup c) {
     setState(() => c.status = 'upcoming');
-    _showSnack('Restored to upcoming', _Glass.blueDeep);
+    _showSnack('Restored to upcoming', Glass.blueDeep);
     _apiUpdateCheckup(c);
   }
 
   void _delete(Checkup c) {
     setState(() => _checkups.remove(c));
-    _showSnack('Deleted "${c.title}"', _Glass.pinkDeep);
+    _showSnack('Deleted "${c.title}"', Glass.pinkDeep);
     _apiDeleteCheckup(c.id);
   }
 
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: _Glass.body(size: 13, color: Colors.white)),
+      content: Text(msg, style: Glass.body(size: 13, color: Colors.white)),
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -583,11 +463,11 @@ class _CheckupScreenState extends State<CheckupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       bottomNavigationBar: const AppBottomNav(currentIndex: 3),
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -598,13 +478,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        KeyedSubtree(key: _calendarKey, child: _buildCalendar()),
-                        const SizedBox(height: 12),
                         KeyedSubtree(key: _summaryKey, child: _buildSummaryRow()),
-                        const SizedBox(height: 14),
-                        KeyedSubtree(key: _filtersKey, child: _buildFilterChips()),
-                        const SizedBox(height: 10),
-                        _buildCheckupList(),
+                        const SizedBox(height: 12),
+                        KeyedSubtree(key: _calendarKey, child: _buildCalendar()),
                         const SizedBox(height: 14),
                         KeyedSubtree(key: _addButtonKey, child: _buildAddButton()),
                       ],
@@ -623,13 +499,13 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   Widget _buildTopBar() => Padding(
     padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-    child: _Glass.card(
+    child: Glass.card(
       radius: 18,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(children: [
         Expanded(
           child: Text('Check-up Scheduler',
-              style: _Glass.heading(size: 16, weight: FontWeight.w600)),
+              style: Glass.heading(size: 16, weight: FontWeight.w600)),
         ),
         GestureDetector(
           onTap: _startCoachTour,
@@ -637,11 +513,11 @@ class _CheckupScreenState extends State<CheckupScreen> {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: _Glass.blue.withOpacity(0.2),
+              color: Glass.blue.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
+            child: Icon(Icons.question_mark_rounded, size: 15, color: Glass.blueDeep),
           ),
         ),
       ]),
@@ -659,7 +535,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
     final overdueDays = _daysWithStatus('overdue');
     final doneDays = _daysWithStatus('done');
 
-    return _Glass.card(
+    return Glass.card(
       radius: 18,
       padding: const EdgeInsets.all(14),
       child: Column(children: [
@@ -668,7 +544,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('${_monthName(_currentMonth.month)} ${_currentMonth.year}',
-                style: _Glass.body(size: 14, weight: FontWeight.w700)),
+                style: Glass.body(size: 14, weight: FontWeight.w700)),
             Row(children: [
               _calNavBtn(Icons.chevron_left, () => setState(() =>
                   _currentMonth = DateTime(
@@ -688,7 +564,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
               .map((d) => Expanded(
                     child: Center(
                       child: Text(d,
-                          style: _Glass.body(size: 10, color: _Glass.textHint)),
+                          style: Glass.body(size: 10, color: Glass.textHint)),
                     ),
                   ))
               .toList(),
@@ -713,20 +589,20 @@ class _CheckupScreenState extends State<CheckupScreen> {
             final isDone = doneDays.contains(day);
 
             Color bg = Colors.transparent;
-            Color textColor = _Glass.textDark;
+            Color textColor = Glass.textDark;
             Color dotColor = Colors.transparent;
 
             if (isToday) {
-              bg = _Glass.blueDeep;
+              bg = Glass.blueDeep;
               textColor = Colors.white;
             } else if (isOverdue) {
-              bg = _Glass.pink.withOpacity(0.25);
-              textColor = _Glass.pinkDeep;
-              dotColor = _Glass.pinkDeep;
+              bg = Glass.pink.withOpacity(0.25);
+              textColor = Glass.pinkDeep;
+              dotColor = Glass.pinkDeep;
             } else if (isCheckup) {
-              bg = _Glass.blue.withOpacity(0.25);
-              textColor = _Glass.blueDeep;
-              dotColor = _Glass.blueDeep;
+              bg = Glass.blue.withOpacity(0.25);
+              textColor = Glass.blueDeep;
+              dotColor = Glass.blueDeep;
             } else if (isDone) {
               bg = const Color(0xFF3BAF7E).withOpacity(0.18);
               textColor = const Color(0xFF0F6E56);
@@ -745,7 +621,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text('$day',
-                        style: _Glass.body(
+                        style: Glass.body(
                           size: 11,
                           color: textColor,
                           weight: isToday ? FontWeight.w700 : FontWeight.normal,
@@ -772,9 +648,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _legendDot(_Glass.blueDeep, 'Check-up'),
+            _legendDot(Glass.blueDeep, 'Check-up'),
             const SizedBox(width: 10),
-            _legendDot(_Glass.pinkDeep, 'Overdue'),
+            _legendDot(Glass.pinkDeep, 'Overdue'),
             const SizedBox(width: 10),
             _legendDot(const Color(0xFF1D9E75), 'Done'),
           ],
@@ -812,10 +688,10 @@ class _CheckupScreenState extends State<CheckupScreen> {
     child: Container(
       width: 26, height: 26,
       decoration: BoxDecoration(
-        color: _Glass.blue.withOpacity(0.2),
+        color: Glass.blue.withOpacity(0.2),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Icon(icon, size: 16, color: _Glass.blueDeep),
+      child: Icon(icon, size: 16, color: Glass.blueDeep),
     ),
   );
 
@@ -823,285 +699,30 @@ class _CheckupScreenState extends State<CheckupScreen> {
     Container(width: 8, height: 8,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
     const SizedBox(width: 4),
-    Text(label, style: _Glass.body(size: 9, color: _Glass.textMuted)),
+    Text(label, style: Glass.body(size: 9, color: Glass.textMuted)),
   ]);
 
   // ── Summary row ────────────────────────────────────────────────────────────
 
   Widget _buildSummaryRow() => Row(children: [
-    _summaryCard('$_upcomingCount', 'Upcoming', _Glass.blueDeep),
+    _summaryCard('$_upcomingCount', 'Upcoming', Glass.blueDeep),
     const SizedBox(width: 8),
-    _summaryCard('$_overdueCount', 'Overdue', _Glass.pinkDeep),
+    _summaryCard('$_overdueCount', 'Overdue', Glass.pinkDeep),
     const SizedBox(width: 8),
     _summaryCard('$_doneCount', 'Done', const Color(0xFF1D9E75)),
   ]);
 
   Widget _summaryCard(String num, String label, Color color) => Expanded(
-    child: _Glass.card(
+    child: Glass.card(
       radius: 14,
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(children: [
-        Text(num, style: _Glass.heading(size: 22, weight: FontWeight.w700, color: color)),
+        Text(num, style: Glass.heading(size: 22, weight: FontWeight.w700, color: color)),
         const SizedBox(height: 2),
-        Text(label, style: _Glass.body(size: 10, color: _Glass.textMuted)),
+        Text(label, style: Glass.body(size: 10, color: Glass.textMuted)),
       ]),
     ),
   );
-
-  // ── Filter chips ───────────────────────────────────────────────────────────
-
-  Widget _buildFilterChips() {
-    const labels = ['All', 'Upcoming', 'Overdue', 'Done'];
-    final colors = [
-      _Glass.blueDeep, _Glass.blueDeep, _Glass.pinkDeep, const Color(0xFF1D9E75),
-    ];
-    return SizedBox(
-      height: 32,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: labels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (_, i) {
-          final isOn = _selectedFilter == i;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedFilter = i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: isOn ? colors[i] : Colors.white.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: isOn ? colors[i] : Colors.white.withOpacity(0.7)),
-              ),
-              child: Text(labels[i],
-                  style: _Glass.body(
-                    size: 12,
-                    weight: FontWeight.w600,
-                    color: isOn ? Colors.white : _Glass.textMuted,
-                  )),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Checkup list ───────────────────────────────────────────────────────────
-
-  Widget _buildCheckupList() {
-    final list = _filteredCheckups;
-    if (list.isEmpty) return _buildEmptyState();
-    return Column(
-      children: list.map((c) => _buildCheckupCard(c)).toList(),
-    );
-  }
-
-  Widget _buildEmptyState() => _Glass.card(
-    padding: const EdgeInsets.symmetric(vertical: 40),
-    child: Column(children: [
-      const Text('📋', style: TextStyle(fontSize: 40)),
-      const SizedBox(height: 12),
-      Text(
-        _selectedFilter == 0
-            ? 'No check-ups yet'
-            : 'No ${['', 'upcoming', 'overdue', 'done'][_selectedFilter]} check-ups',
-        style: _Glass.body(size: 15, color: _Glass.textMuted)),
-      const SizedBox(height: 6),
-      Text('Tap "Add Check-up" to schedule one',
-          style: _Glass.body(size: 12, color: _Glass.textHint)),
-    ]),
-  );
-
-  Widget _buildCheckupCard(Checkup checkup) {
-    final bg = _statusBg(checkup.status);
-    final col = _statusColor(checkup.status);
-    final label = _statusLabel(checkup.status);
-
-    return Dismissible(
-      key: Key('checkup_${checkup.id}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: _Glass.pinkDeep,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
-            const SizedBox(height: 2),
-            Text('Delete', style: _Glass.body(size: 10, color: Colors.white)),
-          ],
-        ),
-      ),
-      confirmDismiss: (_) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Colors.white.withOpacity(0.92),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text('Delete check-up?',
-                style: _Glass.heading(size: 17, weight: FontWeight.w700)),
-            content: Text('Remove "${checkup.title}" from your schedule?',
-                style: _Glass.body(size: 13, color: _Glass.textMuted)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text('Cancel', style: _Glass.body(color: _Glass.textMuted)),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _Glass.pinkDeep,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                ),
-                child: Text('Delete', style: _Glass.body(color: Colors.white)),
-              ),
-            ],
-          ),
-        ) ?? false;
-      },
-      onDismissed: (_) => _delete(checkup),
-      child: GestureDetector(
-        onTap: () => _showCheckupDetailSheet(checkup),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: _Glass.card(
-            radius: 14,
-            padding: const EdgeInsets.all(12),
-            opacity: 0.5,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: col, width: 3)),
-              ),
-              padding: const EdgeInsets.only(left: 10),
-              child: Row(children: [
-                // Date box
-                Container(
-                  width: 46, height: 46,
-                  decoration: BoxDecoration(
-                      color: bg, borderRadius: BorderRadius.circular(10)),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('${checkup.date.day}',
-                          style: _Glass.heading(
-                              size: 16, weight: FontWeight.w700, color: col).copyWith(height: 1)),
-                      Text(_shortMonth(checkup.date.month),
-                          style: _Glass.body(size: 9, weight: FontWeight.w600, color: col)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Expanded(
-                          child: Text(checkup.title,
-                              style: _Glass.body(size: 13, weight: FontWeight.w700)),
-                        ),
-                        if (checkup.isRecurring)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _Glass.blue.withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.repeat_rounded, size: 9, color: _Glass.blueDeep),
-                              const SizedBox(width: 2),
-                              Text(checkup.recurringType[0].toUpperCase() +
-                                  checkup.recurringType.substring(1),
-                                  style: _Glass.body(size: 8, color: _Glass.blueDeep)),
-                            ]),
-                          ),
-                      ]),
-                      const SizedBox(height: 2),
-                      Text(
-                          checkup.time.isNotEmpty
-                              ? '${checkup.time} · ${checkup.notes}'
-                              : checkup.notes,
-                          style: _Glass.body(size: 10, color: _Glass.textHint)),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                                color: bg, borderRadius: BorderRadius.circular(10)),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(_statusIcon(checkup.status), size: 10, color: col),
-                              const SizedBox(width: 3),
-                              Text(label,
-                                  style: _Glass.body(size: 9, weight: FontWeight.w600, color: col)),
-                            ]),
-                          ),
-                          // Quick action — only offer "Mark done" once the
-                          // appointment date has actually arrived.
-                          if (checkup.status != 'done' &&
-                              !_isFutureDate(checkup.date))
-                            GestureDetector(
-                              onTap: () => _markDone(checkup),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF3BAF7E).withOpacity(0.18),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                  const Icon(Icons.check_rounded, size: 10, color: Color(0xFF1D9E75)),
-                                  const SizedBox(width: 3),
-                                  Text('Mark done',
-                                      style: _Glass.body(
-                                          size: 9, weight: FontWeight.w600, color: const Color(0xFF1D9E75))),
-                                ]),
-                              ),
-                            )
-                          else if (checkup.status == 'done')
-                            GestureDetector(
-                              onTap: () => _markUpcoming(checkup),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: _Glass.blue.withOpacity(0.25),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                  Icon(Icons.undo_rounded, size: 10, color: _Glass.blueDeep),
-                                  const SizedBox(width: 3),
-                                  Text('Undo',
-                                      style: _Glass.body(size: 9, weight: FontWeight.w600, color: _Glass.blueDeep)),
-                                ]),
-                              ),
-                            )
-                          else
-                            const SizedBox.shrink(),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 6),
-                Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _Glass.textHint),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   // ── Add button ─────────────────────────────────────────────────────────────
 
@@ -1112,9 +733,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
       onPressed: () => _showAddEditSheet(null),
       icon: const Icon(Icons.add, color: Colors.white, size: 20),
       label: Text('Add Check-up',
-          style: _Glass.body(size: 15, weight: FontWeight.w600, color: Colors.white)),
+          style: Glass.body(size: 15, weight: FontWeight.w600, color: Colors.white)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: _Glass.pinkDeep,
+        backgroundColor: Glass.pinkDeep,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         elevation: 0,
@@ -1141,7 +762,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
           Container(
             width: 36, height: 4,
             decoration: BoxDecoration(
-              color: _Glass.textHint.withOpacity(0.4),
+              color: Glass.textHint.withOpacity(0.4),
               borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 18),
@@ -1154,18 +775,18 @@ class _CheckupScreenState extends State<CheckupScreen> {
               child: Column(mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text('${c.date.day}',
-                      style: _Glass.heading(size: 18, weight: FontWeight.w700, color: col).copyWith(height: 1)),
+                      style: Glass.heading(size: 18, weight: FontWeight.w700, color: col).copyWith(height: 1)),
                   Text(_shortMonth(c.date.month),
-                      style: _Glass.body(size: 10, weight: FontWeight.w600, color: col)),
+                      style: Glass.body(size: 10, weight: FontWeight.w600, color: col)),
                 ]),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(c.title, style: _Glass.heading(size: 16, weight: FontWeight.w700)),
+                  Text(c.title, style: Glass.heading(size: 16, weight: FontWeight.w700)),
                   const SizedBox(height: 3),
-                  Text(c.notes, style: _Glass.body(size: 12, color: _Glass.textMuted)),
+                  Text(c.notes, style: Glass.body(size: 12, color: Glass.textMuted)),
                 ]),
             ),
           ]),
@@ -1174,7 +795,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _Glass.pageBackground,
+              color: Glass.pageBackground,
               borderRadius: BorderRadius.circular(12)),
             child: Column(children: [
               _detailRow(Icons.calendar_today_rounded, 'Date', _formatDate(c.date)),
@@ -1201,10 +822,10 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   _showAddEditSheet(c);
                 },
                 icon: const Icon(Icons.edit_outlined, size: 16),
-                label: Text('Edit', style: _Glass.body(size: 13)),
+                label: Text('Edit', style: Glass.body(size: 13)),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: _Glass.blueDeep,
-                  side: BorderSide(color: _Glass.blueDeep),
+                  foregroundColor: Glass.blueDeep,
+                  side: BorderSide(color: Glass.blueDeep),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -1229,9 +850,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     size: 16,
                   ),
                   label: Text(c.status != 'done' ? 'Mark done' : 'Undo',
-                      style: _Glass.body(size: 13, weight: FontWeight.w600, color: Colors.white)),
+                      style: Glass.body(size: 13, weight: FontWeight.w600, color: Colors.white)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: c.status != 'done' ? const Color(0xFF1D9E75) : _Glass.blueDeep,
+                    backgroundColor: c.status != 'done' ? const Color(0xFF1D9E75) : Glass.blueDeep,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
@@ -1253,23 +874,23 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     backgroundColor: Colors.white.withOpacity(0.92),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     title: Text('Delete check-up?',
-                        style: _Glass.heading(size: 17, weight: FontWeight.w700)),
+                        style: Glass.heading(size: 17, weight: FontWeight.w700)),
                     content: Text('Remove "${c.title}" from your schedule?',
-                        style: _Glass.body(size: 13, color: _Glass.textMuted)),
+                        style: Glass.body(size: 13, color: Glass.textMuted)),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: Text('Cancel', style: _Glass.body(color: _Glass.textMuted)),
+                        child: Text('Cancel', style: Glass.body(color: Glass.textMuted)),
                       ),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(ctx, true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _Glass.pinkDeep,
+                          backgroundColor: Glass.pinkDeep,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
                         ),
-                        child: Text('Delete', style: _Glass.body(color: Colors.white)),
+                        child: Text('Delete', style: Glass.body(color: Colors.white)),
                       ),
                     ],
                   ),
@@ -1279,9 +900,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   _delete(c);
                 }
               },
-              icon: Icon(Icons.delete_outline_rounded, size: 16, color: _Glass.pinkDeep),
+              icon: Icon(Icons.delete_outline_rounded, size: 16, color: Glass.pinkDeep),
               label: Text('Delete check-up',
-                  style: _Glass.body(size: 13, color: _Glass.pinkDeep)),
+                  style: Glass.body(size: 13, color: Glass.pinkDeep)),
             ),
           ),
 
@@ -1293,19 +914,32 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   Widget _detailRow(IconData icon, String label, String value, {Color? color}) =>
       Row(children: [
-        Icon(icon, size: 14, color: color ?? _Glass.textMuted),
+        Icon(icon, size: 14, color: color ?? Glass.textMuted),
         const SizedBox(width: 8),
-        Text(label, style: _Glass.body(size: 12, color: _Glass.textMuted)),
+        Text(label, style: Glass.body(size: 12, color: Glass.textMuted)),
         const Spacer(),
-        Text(value, style: _Glass.body(size: 12, weight: FontWeight.w600, color: color ?? _Glass.textDark)),
+        Text(value, style: Glass.body(size: 12, weight: FontWeight.w600, color: color ?? Glass.textDark)),
       ]);
 
   // ── Add / Edit sheet ───────────────────────────────────────────────────────
 
   void _showAddEditSheet(Checkup? existing) {
     final isEdit = existing != null;
-    final titleCtrl =
-        TextEditingController(text: isEdit ? existing.title : '');
+
+    // Dropdown state. When editing, pre-select the matching type; if the
+    // saved title isn't in the list, select "Others" and fill the text box.
+    String? selectedType;
+    final otherCtrl = TextEditingController();
+    if (isEdit) {
+      if (kAppointmentTypes.contains(existing.title) &&
+          existing.title != kOthersLabel) {
+        selectedType = existing.title;
+      } else {
+        selectedType = kOthersLabel;
+        otherCtrl.text = existing.title;
+      }
+    }
+
     final notesCtrl =
         TextEditingController(text: isEdit ? existing.notes : '');
     DateTime selDate = isEdit ? existing.date : DateTime.now();
@@ -1334,18 +968,53 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     child: Container(
                       width: 36, height: 4,
                       decoration: BoxDecoration(
-                        color: _Glass.textHint.withOpacity(0.4),
+                        color: Glass.textHint.withOpacity(0.4),
                         borderRadius: BorderRadius.circular(2)),
                     ),
                   ),
                   const SizedBox(height: 14),
 
                   Text(isEdit ? 'Edit Check-up' : 'New Check-up',
-                      style: _Glass.heading(size: 18, weight: FontWeight.w700)),
+                      style: Glass.heading(size: 18, weight: FontWeight.w700)),
                   const SizedBox(height: 16),
 
+                  // ── Appointment type dropdown ──
                   _label('Appointment Type'),
-                  _input(titleCtrl, 'e.g. OB-GYN Consultation'),
+                  if (selectedType == kOthersLabel)
+                    // "Others" picked → the dropdown itself becomes a text
+                    // field, focused right away. The arrow goes back to the list.
+                    TextField(
+                      controller: otherCtrl,
+                      autofocus: otherCtrl.text.isEmpty,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: Glass.body(size: 13, color: Glass.textDark),
+                      decoration: InputDecoration(
+                        hintText: 'Type appointment type (e.g. Colposcopy)',
+                        hintStyle:
+                            Glass.body(size: 13, color: Glass.textHint),
+                        filled: true,
+                        fillColor: Glass.pageBackground,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 14),
+                        suffixIcon: IconButton(
+                          tooltip: 'Choose from list',
+                          icon: Icon(Icons.keyboard_arrow_down_rounded,
+                              color: Glass.blueDeep),
+                          onPressed: () => setSheetState(() {
+                            selectedType = null;
+                            otherCtrl.clear();
+                          }),
+                        ),
+                      ),
+                    )
+                  else
+                    _typeDropdown(
+                      selected: selectedType,
+                      onChanged: (v) => setSheetState(() => selectedType = v),
+                    ),
                   const SizedBox(height: 12),
 
                   _label('Notes (optional)'),
@@ -1363,7 +1032,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                         lastDate: DateTime(2030),
                         builder: (context, child) => Theme(
                           data: Theme.of(context).copyWith(
-                            colorScheme: ColorScheme.light(primary: _Glass.blueDeep),
+                            colorScheme: ColorScheme.light(primary: Glass.blueDeep),
                           ),
                           child: child!,
                         ),
@@ -1376,14 +1045,14 @@ class _CheckupScreenState extends State<CheckupScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       decoration: BoxDecoration(
-                          color: _Glass.pageBackground,
+                          color: Glass.pageBackground,
                           borderRadius: BorderRadius.circular(10)),
                       child: Row(children: [
-                        Icon(Icons.calendar_today_outlined, size: 16, color: _Glass.blueDeep),
+                        Icon(Icons.calendar_today_outlined, size: 16, color: Glass.blueDeep),
                         const SizedBox(width: 8),
-                        Text(_formatDate(selDate), style: _Glass.body(size: 13, color: _Glass.textMuted)),
+                        Text(_formatDate(selDate), style: Glass.body(size: 13, color: Glass.textMuted)),
                         const Spacer(),
-                        Text('Change', style: _Glass.body(size: 11, color: _Glass.blueDeep)),
+                        Text('Change', style: Glass.body(size: 11, color: Glass.blueDeep)),
                       ]),
                     ),
                   ),
@@ -1399,7 +1068,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                         initialTime: selTime,
                         builder: (context, child) => Theme(
                           data: Theme.of(context).copyWith(
-                            colorScheme: ColorScheme.light(primary: _Glass.blueDeep),
+                            colorScheme: ColorScheme.light(primary: Glass.blueDeep),
                           ),
                           child: child!,
                         ),
@@ -1412,15 +1081,15 @@ class _CheckupScreenState extends State<CheckupScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       decoration: BoxDecoration(
-                          color: _Glass.pageBackground,
+                          color: Glass.pageBackground,
                           borderRadius: BorderRadius.circular(10)),
                       child: Row(children: [
-                        Icon(Icons.access_time_rounded, size: 16, color: _Glass.blueDeep),
+                        Icon(Icons.access_time_rounded, size: 16, color: Glass.blueDeep),
                         const SizedBox(width: 8),
                         Text(selTime.format(ctx),
-                            style: _Glass.body(size: 13, color: _Glass.textMuted)),
+                            style: Glass.body(size: 13, color: Glass.textMuted)),
                         const Spacer(),
-                        Text('Change', style: _Glass.body(size: 11, color: _Glass.blueDeep)),
+                        Text('Change', style: Glass.body(size: 11, color: Glass.blueDeep)),
                       ]),
                     ),
                   ),
@@ -1433,11 +1102,24 @@ class _CheckupScreenState extends State<CheckupScreen> {
                       onPressed: isSaving
                           ? null
                           : () async {
-                              final title = titleCtrl.text.trim();
-                              if (title.isEmpty) {
-                                _showSnack('Please enter a title', _Glass.pinkDeep);
+                              // ── Validation ──
+                              if (selectedType == null) {
+                                _showSnack('Please select an appointment type',
+                                    Glass.pinkDeep);
                                 return;
                               }
+                              final String title;
+                              if (selectedType == kOthersLabel) {
+                                title = otherCtrl.text.trim();
+                                if (title.isEmpty) {
+                                  _showSnack('Please type the appointment type',
+                                      Glass.pinkDeep);
+                                  return;
+                                }
+                              } else {
+                                title = selectedType!;
+                              }
+
                               setSheetState(() => isSaving = true);
 
                               bool ok;
@@ -1474,7 +1156,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                                 Navigator.pop(ctx);
                                 _showSnack(
                                   isEdit ? 'Check-up updated ✓' : 'Check-up added ✓',
-                                  _Glass.blueDeep,
+                                  Glass.blueDeep,
                                 );
                               } else {
                                 // Keep the sheet open on failure — the API
@@ -1485,9 +1167,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
                               }
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _Glass.blueDeep,
+                        backgroundColor: Glass.blueDeep,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: _Glass.blueDeep.withOpacity(0.5),
+                        disabledBackgroundColor: Glass.blueDeep.withOpacity(0.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
@@ -1499,7 +1181,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                                   color: Colors.white, strokeWidth: 2.5),
                             )
                           : Text(isEdit ? 'Save Changes' : 'Save',
-                              style: _Glass.body(
+                              style: Glass.body(
                                   size: 15, weight: FontWeight.w600, color: Colors.white)),
                     ),
                   ),
@@ -1512,6 +1194,51 @@ class _CheckupScreenState extends State<CheckupScreen> {
     );
   }
 
+  // Styled to match the `_input` text fields.
+  Widget _typeDropdown({
+    required String? selected,
+    required ValueChanged<String?> onChanged,
+  }) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Glass.pageBackground,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selected,
+            isExpanded: true,
+            hint: Text('Select appointment type',
+                style: Glass.body(size: 13, color: Glass.textHint)),
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                color: Glass.blueDeep),
+            borderRadius: BorderRadius.circular(12),
+            dropdownColor: Colors.white,
+            menuMaxHeight: 320,
+            style: Glass.body(size: 13, color: Glass.textDark),
+            items: kAppointmentTypes
+                .map((t) => DropdownMenuItem<String>(
+                      value: t,
+                      child: Text(
+                        t,
+                        overflow: TextOverflow.ellipsis,
+                        style: Glass.body(
+                          size: 13,
+                          color: Glass.textDark,
+                          weight: t == kOthersLabel
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ))
+                .toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      );
+
   Widget _recurChip(String label, String value, String current,
       ValueChanged<String> onTap) {
     final isOn = current == value;
@@ -1521,30 +1248,30 @@ class _CheckupScreenState extends State<CheckupScreen> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isOn ? _Glass.blueDeep : _Glass.pageBackground,
+          color: isOn ? Glass.blueDeep : Glass.pageBackground,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isOn ? _Glass.blueDeep : _Glass.textHint.withOpacity(0.4)),
+          border: Border.all(color: isOn ? Glass.blueDeep : Glass.textHint.withOpacity(0.4)),
         ),
         child: Text(label,
-            style: _Glass.body(
-                size: 12, weight: FontWeight.w600, color: isOn ? Colors.white : _Glass.textMuted)),
+            style: Glass.body(
+                size: 12, weight: FontWeight.w600, color: isOn ? Colors.white : Glass.textMuted)),
       ),
     );
   }
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 4),
-    child: Text(text, style: _Glass.body(size: 12, color: _Glass.textHint)),
+    child: Text(text, style: Glass.body(size: 12, color: Glass.textHint)),
   );
 
   Widget _input(TextEditingController ctrl, String hint) => TextField(
     controller: ctrl,
-    style: _Glass.body(size: 13, color: _Glass.textDark),
+    style: Glass.body(size: 13, color: Glass.textDark),
     decoration: InputDecoration(
       hintText: hint,
-      hintStyle: _Glass.body(size: 13, color: _Glass.textHint),
+      hintStyle: Glass.body(size: 13, color: Glass.textHint),
       filled: true,
-      fillColor: _Glass.pageBackground,
+      fillColor: Glass.pageBackground,
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1571,21 +1298,21 @@ class _CheckupScreenState extends State<CheckupScreen> {
             const SizedBox(height: 10),
             Container(width: 36, height: 4,
               decoration: BoxDecoration(
-                color: _Glass.textHint.withOpacity(0.4),
+                color: Glass.textHint.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 14),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(children: [
                 Text('Suggested Check-ups',
-                    style: _Glass.heading(size: 17, weight: FontWeight.w700)),
+                    style: Glass.heading(size: 17, weight: FontWeight.w700)),
               ]),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Text(
                 'Tap any suggestion to quickly add it to your schedule.',
-                style: _Glass.body(size: 12, color: _Glass.textMuted)),
+                style: Glass.body(size: 12, color: Glass.textMuted)),
             ),
             Expanded(
               child: ListView.separated(
@@ -1603,7 +1330,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                          color: _Glass.pageBackground,
+                          color: Glass.pageBackground,
                           borderRadius: BorderRadius.circular(14)),
                       child: Row(children: [
                         Container(
@@ -1620,19 +1347,19 @@ class _CheckupScreenState extends State<CheckupScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(s.title,
-                                  style: _Glass.body(size: 13, weight: FontWeight.w700)),
+                                  style: Glass.body(size: 13, weight: FontWeight.w700)),
                               const SizedBox(height: 2),
                               Text(s.note,
-                                  style: _Glass.body(size: 11, color: _Glass.textMuted)),
+                                  style: Glass.body(size: 11, color: Glass.textMuted)),
                             ]),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                              color: _Glass.blue.withOpacity(0.25),
+                              color: Glass.blue.withOpacity(0.25),
                               borderRadius: BorderRadius.circular(10)),
                           child: Text(s.frequency,
-                              style: _Glass.body(size: 9, weight: FontWeight.w600, color: _Glass.blueDeep)),
+                              style: Glass.body(size: 9, weight: FontWeight.w600, color: Glass.blueDeep)),
                         ),
                       ]),
                     ),
@@ -1652,11 +1379,11 @@ class _CheckupScreenState extends State<CheckupScreen> {
     DateTime selDate = DateTime.now();
     bool recurring = s.frequency == 'Monthly' || s.frequency == 'Yearly' ||
         s.frequency == 'Every 6 months' || s.frequency == 'Every 3 years' ||
-        s.frequency == 'Every 2 years';
+        s.frequency == 'Every 2 years' || s.frequency == 'Every 5 years';
     String recurType = s.frequency == 'Monthly'
         ? 'monthly'
         : s.frequency == 'Yearly' || s.frequency == 'Every 3 years' ||
-                s.frequency == 'Every 2 years'
+                s.frequency == 'Every 2 years' || s.frequency == 'Every 5 years'
             ? 'yearly'
             : 'none';
     bool isSaving = false;
@@ -1682,7 +1409,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   child: Container(
                     width: 36, height: 4,
                     decoration: BoxDecoration(
-                        color: _Glass.textHint.withOpacity(0.4),
+                        color: Glass.textHint.withOpacity(0.4),
                         borderRadius: BorderRadius.circular(2))),
                 ),
                 const SizedBox(height: 14),
@@ -1691,7 +1418,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   Text(s.icon, style: const TextStyle(fontSize: 24)),
                   const SizedBox(width: 10),
                   Text('Add Check-up',
-                      style: _Glass.heading(size: 18, weight: FontWeight.w700)),
+                      style: Glass.heading(size: 18, weight: FontWeight.w700)),
                 ]),
                 const SizedBox(height: 16),
 
@@ -1712,7 +1439,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                       lastDate: DateTime(2030),
                       builder: (context, child) => Theme(
                         data: Theme.of(context).copyWith(
-                            colorScheme: ColorScheme.light(primary: _Glass.blueDeep)),
+                            colorScheme: ColorScheme.light(primary: Glass.blueDeep)),
                         child: child!,
                       ),
                     );
@@ -1724,14 +1451,14 @@ class _CheckupScreenState extends State<CheckupScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
-                        color: _Glass.pageBackground,
+                        color: Glass.pageBackground,
                         borderRadius: BorderRadius.circular(10)),
                     child: Row(children: [
-                      Icon(Icons.calendar_today_outlined, size: 16, color: _Glass.blueDeep),
+                      Icon(Icons.calendar_today_outlined, size: 16, color: Glass.blueDeep),
                       const SizedBox(width: 8),
-                      Text(_formatDate(selDate), style: _Glass.body(size: 13, color: _Glass.textMuted)),
+                      Text(_formatDate(selDate), style: Glass.body(size: 13, color: Glass.textMuted)),
                       const Spacer(),
-                      Text('Change', style: _Glass.body(size: 11, color: _Glass.blueDeep)),
+                      Text('Change', style: Glass.body(size: 11, color: Glass.blueDeep)),
                     ]),
                   ),
                 ),
@@ -1741,15 +1468,15 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                        color: _Glass.blue.withOpacity(0.2),
+                        color: Glass.blue.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(10)),
                     child: Row(children: [
-                      Icon(Icons.repeat_rounded, size: 14, color: _Glass.blueDeep),
+                      Icon(Icons.repeat_rounded, size: 14, color: Glass.blueDeep),
                       const SizedBox(width: 8),
                       Text(
                           'Recommended: ${s.frequency} · set to '
                           '${recurType[0].toUpperCase()}${recurType.substring(1)}',
-                          style: _Glass.body(size: 11, color: _Glass.blueDeep)),
+                          style: Glass.body(size: 11, color: Glass.blueDeep)),
                     ]),
                   ),
                 ],
@@ -1787,15 +1514,15 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
                             if (ok) {
                               Navigator.pop(ctx);
-                              _showSnack('Check-up added ✓', _Glass.blueDeep);
+                              _showSnack('Check-up added ✓', Glass.blueDeep);
                             } else {
                               setSheetState(() => isSaving = false);
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _Glass.blueDeep,
+                      backgroundColor: Glass.blueDeep,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: _Glass.blueDeep.withOpacity(0.5),
+                      disabledBackgroundColor: Glass.blueDeep.withOpacity(0.5),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
@@ -1807,7 +1534,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                                 color: Colors.white, strokeWidth: 2.5),
                           )
                         : Text('Save',
-                            style: _Glass.body(
+                            style: Glass.body(
                                 size: 15, weight: FontWeight.w600, color: Colors.white)),
                   ),
                 ),
@@ -1853,11 +1580,11 @@ class _DayCheckupsSheet extends StatelessWidget {
         Container(
           width: 36, height: 4,
           decoration: BoxDecoration(
-              color: _Glass.textHint.withOpacity(0.4),
+              color: Glass.textHint.withOpacity(0.4),
               borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 14),
         Text('Check-ups this day',
-            style: _Glass.heading(size: 16, weight: FontWeight.w700)),
+            style: Glass.heading(size: 16, weight: FontWeight.w700)),
         const SizedBox(height: 14),
         ...checkups.map((c) {
           final col = statusColor(c.status);
@@ -1871,7 +1598,7 @@ class _DayCheckupsSheet extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                  color: _Glass.pageBackground,
+                  color: Glass.pageBackground,
                   borderRadius: BorderRadius.circular(12)),
               child: Row(children: [
                 Container(
@@ -1885,8 +1612,8 @@ class _DayCheckupsSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(c.title, style: _Glass.body(size: 13, weight: FontWeight.w700)),
-                      Text(c.notes, style: _Glass.body(size: 11, color: _Glass.textMuted)),
+                      Text(c.title, style: Glass.body(size: 13, weight: FontWeight.w700)),
+                      Text(c.notes, style: Glass.body(size: 11, color: Glass.textMuted)),
                     ]),
                 ),
                 Container(
@@ -1894,7 +1621,7 @@ class _DayCheckupsSheet extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: bg, borderRadius: BorderRadius.circular(10)),
                   child: Text(statusLabel(c.status),
-                      style: _Glass.body(size: 9, weight: FontWeight.w600, color: col)),
+                      style: Glass.body(size: 9, weight: FontWeight.w600, color: col)),
                 ),
               ]),
             ),
@@ -1902,142 +1629,6 @@ class _DayCheckupsSheet extends StatelessWidget {
         }),
         const SizedBox(height: 6),
       ]),
-    );
-  }
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      ),
     );
   }
 }

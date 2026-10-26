@@ -1,11 +1,12 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
+import '../services/tutorial_storage_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import '../widgets/glass.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -28,6 +29,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Becomes true once the user taps Continue. Until then we don't nag about
+  // empty required fields; after that, empty ones show "This field is required".
+  bool _submitted = false;
+
+  // Red used for the required asterisk and the "This field is required" note.
+  static const Color _requiredRed = Color(0xFFE53935);
+
+  // Minimum age to use FemCycle.
+  static const int _minAge = 15;
+
+  // Minimum password length.
+  static const int _minPasswordLength = 8;
+
   // ── Step control: 0 = registration form, 1 = email OTP verification ──────
   int _step = 0;
   final _otpControllers = List.generate(4, (_) => TextEditingController());
@@ -46,20 +60,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // ── Password rules ────────────────────────────────────────────────────────
+  bool _hasMinLength(String p) => p.length >= _minPasswordLength;
+  bool _hasUppercase(String p) => RegExp(r'[A-Z]').hasMatch(p);
+  bool _hasLowercase(String p) => RegExp(r'[a-z]').hasMatch(p);
+  bool _hasNumber(String p) => RegExp(r'[0-9]').hasMatch(p);
+  bool _hasSpecialChar(String p) => RegExp(r'[^A-Za-z0-9\s]').hasMatch(p);
+
+  bool _isPasswordStrong(String p) =>
+      _hasMinLength(p) &&
+      _hasUppercase(p) &&
+      _hasLowercase(p) &&
+      _hasNumber(p) &&
+      _hasSpecialChar(p);
+
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(now.year - 18, now.month, now.day),
       firstDate: DateTime(1900),
-      lastDate: now,
+      // Dates that would make the user younger than 15 aren't selectable.
+      lastDate: DateTime(now.year - _minAge, now.month, now.day),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: _Glass.blueDeep,
+              primary: Glass.blueDeep,
               onPrimary: Colors.white,
-              onSurface: _Glass.textDark,
+              onSurface: Glass.textDark,
             ),
           ),
           child: child!,
@@ -73,6 +102,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // ── Step 0 -> validate fields, then send the OTP and move to step 1 ──────
   Future<void> _handleContinue() async {
+    // Turn on the "This field is required" notes for any empty required fields.
+    setState(() => _submitted = true);
+
     final firstName = _firstNameController.text.trim();
     final middleName = _middleNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -80,12 +112,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty) {
+    if (firstName.isEmpty ||
+        lastName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       setState(() => _errorMessage = 'Please fill in all required fields.');
       return;
     }
-    if (password.length < 8) {
-      setState(() => _errorMessage = 'Password must be at least 8 characters.');
+    if (_selectedBirthday == null) {
+      setState(() => _errorMessage = 'Please select your birthdate.');
+      return;
+    }
+    final b = _selectedBirthday!;
+    if (DateTime(b.year + _minAge, b.month, b.day).isAfter(DateTime.now())) {
+      setState(() => _errorMessage =
+          'You must be at least $_minAge years old to use FemCycle.');
+      return;
+    }
+    if (!_isPasswordStrong(password)) {
+      setState(() => _errorMessage =
+          'Password must be at least $_minPasswordLength characters and include an '
+          'uppercase letter, a lowercase letter, a number, and a special character.');
       return;
     }
     if (password != confirmPassword) {
@@ -169,6 +217,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
+      // Brand-new account: store its id so tutorial flags are kept per
+      // account. A new id has no flags yet, so every tour plays from the
+      // start, exactly like a first-time user.
+      final user = result['data']?['user'];
+      await TutorialStorageService.setUser(user is Map ? user['id'] : null);
+
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -195,8 +250,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _showSnack(String msg, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: _Glass.body(color: Colors.white)),
-      backgroundColor: isError ? _Glass.pinkDeep : const Color(0xFF4CAF7D),
+      content: Text(msg, style: Glass.body(color: Colors.white)),
+      backgroundColor: isError ? Glass.pinkDeep : const Color(0xFF4CAF7D),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
@@ -226,10 +281,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -252,40 +307,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildTopBar() {
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-    child: _Glass.card(
-      radius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () {
-              if (_step == 1) {
-                setState(() => _step = 0);
-              } else {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              }
-            },
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5), shape: BoxShape.circle),
-              child: Icon(Icons.chevron_left, color: _Glass.textDark, size: 20),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      child: Glass.card(
+        radius: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (_step == 1) {
+                  setState(() => _step = 0);
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                }
+              },
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5), shape: BoxShape.circle),
+                child: Icon(Icons.chevron_left, color: Glass.textDark, size: 20),
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Text(_step == 0 ? 'Create Account' : 'Verify Email',
-              style: _Glass.heading(size: 18, weight: FontWeight.w600)),
-        ],
+            const SizedBox(width: 10),
+            Text(_step == 0 ? 'Create Account' : 'Verify Email',
+                style: Glass.heading(size: 18, weight: FontWeight.w600)),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ── Step 0: registration form ─────────────────────────────────────────────
   Widget _buildFormStep() {
@@ -294,10 +349,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const SizedBox(height: 8),
-        Text('FemCycle', style: _Glass.heading(size: 26)),
+        Text('FemCycle', style: Glass.heading(size: 26)),
         const SizedBox(height: 20),
 
-        _Glass.card(
+        Glass.card(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -307,9 +362,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
               ],
 
-              _buildLabel('First Name'),
+              _buildLabel(
+                'First Name',
+                required: true,
+              ),
               const SizedBox(height: 6),
-              _buildTextField(controller: _firstNameController, hint: 'First Name'),
+              _buildTextField(
+                controller: _firstNameController,
+                hint: 'First Name',
+                onChanged: (_) => setState(() {}),
+              ),
+              _requiredNote(_firstNameController.text.trim().isEmpty),
               const SizedBox(height: 16),
 
               _buildLabel('Middle Name (OPTIONAL)'),
@@ -317,12 +380,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _buildTextField(controller: _middleNameController, hint: 'Middle Name (OPTIONAL)'),
               const SizedBox(height: 16),
 
-              _buildLabel('Last Name'),
+              _buildLabel(
+                'Last Name',
+                required: true,
+              ),
               const SizedBox(height: 6),
-              _buildTextField(controller: _lastNameController, hint: 'Last Name'),
+              _buildTextField(
+                controller: _lastNameController,
+                hint: 'Last Name',
+                onChanged: (_) => setState(() {}),
+              ),
+              _requiredNote(_lastNameController.text.trim().isEmpty),
               const SizedBox(height: 16),
 
-              _buildLabel('Birthdate'),
+              _buildLabel(
+                'Birthdate',
+                required: true,
+              ),
               const SizedBox(height: 6),
               GestureDetector(
                 onTap: _pickBirthday,
@@ -344,60 +418,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 '${_selectedBirthday!.day.toString().padLeft(2, '0')}/'
                                 '${_selectedBirthday!.year}'
                               : 'MM/DD/YYYY',
-                          style: _Glass.body(
+                          style: Glass.body(
                             size: 15,
-                            color: _selectedBirthday != null ? _Glass.textDark : _Glass.textHint,
+                            color: _selectedBirthday != null ? Glass.textDark : Glass.textHint,
                           ),
                         ),
                       ),
-                      Icon(Icons.calendar_today_outlined, size: 18, color: _Glass.blueDeep),
+                      Icon(Icons.calendar_today_outlined, size: 18, color: Glass.blueDeep),
                     ],
                   ),
                 ),
               ),
+              _requiredNote(_selectedBirthday == null),
+              const SizedBox(height: 6),
+              Text(
+                "You must be $_minAge or older. Your birthdate can't be changed after you sign up.",
+                style: Glass.body(size: 11, color: Glass.textMuted),
+              ),
               const SizedBox(height: 16),
 
-              _buildLabel('Email Address'),
+              _buildLabel(
+                'Email Address',
+                required: true,
+              ),
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _emailController,
                 hint: 'Email Address',
                 keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
               ),
+              _requiredNote(_emailController.text.trim().isEmpty),
               const SizedBox(height: 16),
 
-              _buildLabel('Password'),
+              _buildLabel(
+                'Password',
+                required: true,
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                style: _Glass.body(size: 15),
-                decoration: _Glass.fieldDecoration(
+                style: Glass.body(size: 15),
+                // Rebuild on every keystroke so the checklist and the
+                // confirm-password match indicator update live.
+                onChanged: (_) => setState(() {}),
+                decoration: Glass.fieldDecoration(
                   hint: 'Password',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: _Glass.textMuted,
+                      color: Glass.textMuted,
                       size: 20,
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),
+              _requiredNote(_passwordController.text.isEmpty),
+              const SizedBox(height: 10),
+              _buildPasswordChecklist(),
               const SizedBox(height: 16),
 
-              _buildLabel('Confirm Password'),
+              _buildLabel(
+                'Confirm Password',
+                required: true,
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirmPassword,
-                style: _Glass.body(size: 15),
-                decoration: _Glass.fieldDecoration(
+                style: Glass.body(size: 15),
+                // Rebuild on every keystroke so the match indicator is live.
+                onChanged: (_) => setState(() {}),
+                decoration: Glass.fieldDecoration(
                   hint: 'Confirm Password',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: _Glass.textMuted,
+                      color: Glass.textMuted,
                       size: 20,
                     ),
                     onPressed: () =>
@@ -405,6 +504,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
+              _requiredNote(_confirmPasswordController.text.isEmpty),
+              _buildPasswordMatchIndicator(),
               const SizedBox(height: 16),
 
               // Terms & Conditions — checkbox reflects _agreedToTerms, but is
@@ -423,9 +524,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Checkbox(
                           value: _agreedToTerms,
                           onChanged: null,
-                          activeColor: _Glass.blueDeep,
+                          activeColor: Glass.blueDeep,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          side: BorderSide(color: _Glass.blueDeep),
+                          side: BorderSide(color: Glass.blueDeep),
                         ),
                       ),
                     ),
@@ -433,13 +534,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          style: _Glass.body(size: 13, color: _Glass.textMuted),
+                          style: Glass.body(size: 13, color: Glass.textMuted),
                           children: [
                             const TextSpan(text: 'I agree to the '),
                             TextSpan(
                               text: 'Terms and Privacy Policy',
                               style: TextStyle(
-                                color: _Glass.blueDeep,
+                                color: Glass.blueDeep,
                                 decoration: TextDecoration.underline,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -459,7 +560,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleContinue,
-                  style: _Glass.primaryButtonStyle(),
+                  style: Glass.primaryButtonStyle(),
                   child: _isLoading
                       ? const SizedBox(
                           width: 22,
@@ -467,7 +568,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                         )
                       : Text('Continue',
-                          style: _Glass.heading(size: 17, weight: FontWeight.w600, color: Colors.white)),
+                          style: Glass.heading(size: 17, weight: FontWeight.w600, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -476,7 +577,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text('Already have an account? ',
-                      style: _Glass.body(size: 13, color: _Glass.textMuted)),
+                      style: Glass.body(size: 13, color: Glass.textMuted)),
                   GestureDetector(
                     onTap: () => Navigator.pushReplacement(
                       context,
@@ -484,7 +585,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: Text(
                       'Login',
-                      style: _Glass.body(size: 13, weight: FontWeight.w700, color: _Glass.blueDeep)
+                      style: Glass.body(size: 13, weight: FontWeight.w700, color: Glass.blueDeep)
                           .copyWith(decoration: TextDecoration.underline),
                     ),
                   ),
@@ -494,6 +595,79 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // ── Live password requirements checklist ──────────────────────────────────
+  Widget _buildPasswordChecklist() {
+    final p = _passwordController.text;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _requirementRow('At least $_minPasswordLength characters', _hasMinLength(p)),
+        _requirementRow('One uppercase letter (A-Z)', _hasUppercase(p)),
+        _requirementRow('One lowercase letter (a-z)', _hasLowercase(p)),
+        _requirementRow('One number (0-9)', _hasNumber(p)),
+        _requirementRow('One special character (e.g. ! @ # \$ %)', _hasSpecialChar(p)),
+      ],
+    );
+  }
+
+  Widget _requirementRow(String text, bool met) {
+    const metColor = Color(0xFF4CAF7D);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            met ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 15,
+            color: met ? metColor : Glass.textHint,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Glass.body(
+                size: 12,
+                color: met ? metColor : Glass.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Live confirm-password match indicator ─────────────────────────────────
+  // Hidden until the user starts typing in the confirm field, then shows
+  // "Passwords do not match" (red) or "Passwords match" (green) in real time.
+  Widget _buildPasswordMatchIndicator() {
+    final confirm = _confirmPasswordController.text;
+    if (confirm.isEmpty) return const SizedBox.shrink();
+
+    final matches = confirm == _passwordController.text;
+    const matchColor = Color(0xFF4CAF7D);
+    final color = matches ? matchColor : Glass.pinkDeep;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Icon(
+            matches ? Icons.check_circle : Icons.error_outline,
+            size: 15,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              matches ? 'Passwords match' : 'Passwords do not match',
+              style: Glass.body(size: 12, color: color),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -508,23 +682,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: _Glass.pink.withOpacity(0.25),
+            color: Glass.pink.withOpacity(0.25),
             shape: BoxShape.circle,
-            border: Border.all(color: _Glass.pinkDeep, width: 2),
+            border: Border.all(color: Glass.pinkDeep, width: 2),
           ),
-          child: Icon(Icons.mark_email_read_outlined, color: _Glass.pinkDeep, size: 38),
+          child: Icon(Icons.mark_email_read_outlined, color: Glass.pinkDeep, size: 38),
         ),
         const SizedBox(height: 20),
-        Text('Verify your email', style: _Glass.heading(size: 20, weight: FontWeight.w700)),
+        Text('Verify your email', style: Glass.heading(size: 20, weight: FontWeight.w700)),
         const SizedBox(height: 8),
         Text(
           'We sent a 4-digit code to\n${_emailController.text.trim()}',
           textAlign: TextAlign.center,
-          style: _Glass.body(size: 13, color: _Glass.textMuted).copyWith(height: 1.5),
+          style: Glass.body(size: 13, color: Glass.textMuted).copyWith(height: 1.5),
         ),
         const SizedBox(height: 24),
 
-        _Glass.card(
+        Glass.card(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             children: [
@@ -545,7 +719,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: _otpControllers[i].text.isNotEmpty
-                            ? _Glass.blueDeep
+                            ? Glass.blueDeep
                             : Colors.white.withOpacity(0.7),
                         width: 1.5,
                       ),
@@ -556,7 +730,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
                       maxLength: 1,
-                      style: _Glass.heading(size: 22, weight: FontWeight.w700),
+                      style: Glass.heading(size: 22, weight: FontWeight.w700),
                       decoration: const InputDecoration(
                         counterText: '',
                         border: InputBorder.none,
@@ -581,7 +755,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleVerifyAndRegister,
-                  style: _Glass.primaryButtonStyle(),
+                  style: Glass.primaryButtonStyle(),
                   child: _isLoading
                       ? const SizedBox(
                           width: 22,
@@ -589,7 +763,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                         )
                       : Text('Verify & Create Account',
-                          style: _Glass.heading(size: 15, weight: FontWeight.w600, color: Colors.white)),
+                          style: Glass.heading(size: 15, weight: FontWeight.w600, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -598,12 +772,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text("Didn't receive the code? ",
-                      style: _Glass.body(size: 13, color: _Glass.textMuted)),
+                      style: Glass.body(size: 13, color: Glass.textMuted)),
                   GestureDetector(
                     onTap: _isLoading ? null : _handleResendOtp,
                     child: Text(
                       'Resend',
-                      style: _Glass.body(size: 13, weight: FontWeight.w700, color: _Glass.blueDeep)
+                      style: Glass.body(size: 13, weight: FontWeight.w700, color: Glass.blueDeep)
                           .copyWith(decoration: TextDecoration.underline),
                     ),
                   ),
@@ -621,26 +795,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _Glass.pink.withOpacity(0.16),
+        color: Glass.pink.withOpacity(0.16),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _Glass.pink.withOpacity(0.35)),
+        border: Border.all(color: Glass.pink.withOpacity(0.35)),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: _Glass.pinkDeep, size: 18),
+          Icon(Icons.error_outline, color: Glass.pinkDeep, size: 18),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(message, style: _Glass.body(size: 12, color: _Glass.pinkDeep)),
+            child: Text(message, style: Glass.body(size: 12, color: Glass.pinkDeep)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLabel(String text) {
+  // Label with an optional red asterisk for required fields.
+  Widget _buildLabel(String text, {bool required = false}) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text(text, style: _Glass.body(size: 14, weight: FontWeight.w700)),
+      child: RichText(
+        text: TextSpan(
+          style: Glass.body(size: 14, weight: FontWeight.w700),
+          children: [
+            TextSpan(text: text),
+            if (required)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: _requiredRed, fontWeight: FontWeight.w700),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Red note shown under a required field after Continue has been tapped
+  // and the field is still empty.
+  Widget _requiredNote(bool missing) {
+    if (!_submitted || !missing) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 14, color: _requiredRed),
+          const SizedBox(width: 4),
+          Text(
+            'This field is required',
+            style: Glass.body(size: 12, color: _requiredRed),
+          ),
+        ],
+      ),
     );
   }
 
@@ -648,12 +854,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required TextEditingController controller,
     required String hint,
     TextInputType keyboardType = TextInputType.text,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: _Glass.body(size: 15),
-      decoration: _Glass.fieldDecoration(hint: hint),
+      onChanged: onChanged,
+      style: Glass.body(size: 15),
+      decoration: Glass.fieldDecoration(hint: hint),
     );
   }
 }
@@ -721,7 +929,7 @@ class _TermsSheetState extends State<_TermsSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: _Glass.textHint.withOpacity(0.4),
+                color: Glass.textHint.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -732,11 +940,11 @@ class _TermsSheetState extends State<_TermsSheet> {
                 children: [
                   Expanded(
                     child: Text('Terms & Conditions',
-                        style: _Glass.heading(size: 17, weight: FontWeight.w700)),
+                        style: Glass.heading(size: 17, weight: FontWeight.w700)),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pop(context, false),
-                    child: Icon(Icons.close, color: _Glass.textMuted, size: 20),
+                    child: Icon(Icons.close, color: Glass.textMuted, size: 20),
                   ),
                 ],
               ),
@@ -752,7 +960,7 @@ class _TermsSheetState extends State<_TermsSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Last updated: $_lastUpdated',
-                          style: _Glass.body(size: 11, color: _Glass.textHint)),
+                          style: Glass.body(size: 11, color: Glass.textHint)),
                       const SizedBox(height: 16),
                       _section('1. Acceptance of Terms',
                           'By creating an account or using FemCycle ("the App"), you agree to be '
@@ -769,10 +977,9 @@ class _TermsSheetState extends State<_TermsSheet> {
                           'are not a diagnosis of any condition, including PCOS. Always consult a '
                           'qualified healthcare provider for medical concerns.'),
                       _section('4. Eligibility',
-                          'You must be able to form a legally binding agreement to use this App. If '
-                          'you are using the App on behalf of a minor or are a minor yourself, please '
-                          'use the App only with the involvement of a parent or guardian, as '
-                          'appropriate in your jurisdiction.'),
+                          'You must be at least 15 years old to create an account. If you are under '
+                          '18, we encourage you to use the App together with a parent or guardian, '
+                          'as appropriate in your jurisdiction.'),
                       _section('5. Your Account',
                           'You are responsible for maintaining the confidentiality of your login '
                           'credentials and for all activity under your account.'),
@@ -800,17 +1007,17 @@ class _TermsSheetState extends State<_TermsSheet> {
                         margin: const EdgeInsets.only(top: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: _Glass.blue.withOpacity(0.15),
+                          color: Glass.blue.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.check_circle_outline, size: 16, color: _Glass.blueDeep),
+                            Icon(Icons.check_circle_outline, size: 16, color: Glass.blueDeep),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 "You've reached the end — you can now agree below.",
-                                style: _Glass.body(size: 12, color: _Glass.blueDeep),
+                                style: Glass.body(size: 12, color: Glass.blueDeep),
                               ),
                             ),
                           ],
@@ -831,15 +1038,15 @@ class _TermsSheetState extends State<_TermsSheet> {
                       ? () => Navigator.pop(context, true)
                       : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _Glass.blueDeep,
+                    backgroundColor: Glass.blueDeep,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: _Glass.textHint.withOpacity(0.4),
+                    disabledBackgroundColor: Glass.textHint.withOpacity(0.4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
                   child: Text(
                     _reachedBottom ? 'I Agree' : 'Scroll to the bottom to continue',
-                    style: _Glass.body(
+                    style: Glass.body(
                       size: 14,
                       weight: FontWeight.w600,
                       color: Colors.white,
@@ -860,181 +1067,11 @@ class _TermsSheetState extends State<_TermsSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: _Glass.body(size: 13, weight: FontWeight.w700)),
+          Text(title, style: Glass.body(size: 13, weight: FontWeight.w700)),
           const SizedBox(height: 5),
           Text(body,
-              style: _Glass.body(size: 12, color: _Glass.textMuted).copyWith(height: 1.5)),
+              style: Glass.body(size: 12, color: Glass.textMuted).copyWith(height: 1.5)),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  static Widget card({
-    required Widget child,
-    Key? key,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      key: key,
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static InputDecoration fieldDecoration({
-    required String hint,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: body(size: 14, color: textHint),
-      filled: true,
-      fillColor: Colors.white.withOpacity(0.55),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.7)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.7)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: blueDeep.withOpacity(0.7), width: 1.4),
-      ),
-      suffixIcon: suffixIcon,
-    );
-  }
-
-  static ButtonStyle primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: blueDeep,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: blueDeep.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 0,
-    );
-  }
-}
-
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }

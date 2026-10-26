@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -14,6 +15,7 @@ class ApiService {
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
+  static const _rememberKey = 'remember_me';
 
   // ── Token helpers ────────────────────────────────────────────────────
   static Future<void> saveToken(String token) async {
@@ -26,6 +28,33 @@ class ApiService {
 
   static Future<void> deleteToken() async {
     await _storage.delete(key: _tokenKey);
+  }
+
+  // ── Remember me ──────────────────────────────────────────────────────
+  static Future<void> setRememberMe(bool value) async {
+    await _storage.write(key: _rememberKey, value: value ? 'true' : 'false');
+  }
+
+  // A missing flag (sessions created before this feature existed) counts
+  // as "remembered", so existing logged-in users aren't kicked out once.
+  // An explicit untick is stored as 'false' and is respected.
+  static Future<bool> isRememberMe() async {
+    final v = await _storage.read(key: _rememberKey);
+    return v == null || v == 'true';
+  }
+
+  /// Call once on app start (SplashScreen). True = go straight to Home.
+  /// If a token exists but the user didn't tick "Remember me", the
+  /// leftover session is cleared and they land on the login flow.
+  static Future<bool> hasRememberedSession() async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return false;
+    if (await isRememberMe()) return true;
+
+    // Not remembered: revoke the server token and clear local data.
+    // logout() deletes locally even if the request fails.
+    unawaited(logout());
+    return false;
   }
 
   static Future<Map<String, String>> _authHeaders() async {
@@ -114,6 +143,9 @@ class ApiService {
 
       if (response.statusCode == 201) {
         await saveToken(body['token']);
+        // Newly registered users stay signed in. Change to false if you
+        // want them to log in again after closing the app.
+        await setRememberMe(true);
         return {'success': true, 'data': body};
       } else {
         // Laravel validation errors come back as { errors: { field: [msg] } }
@@ -244,52 +276,55 @@ class ApiService {
       };
     }
   }
-static Future<Map<String, dynamic>> getSymptomProfile() async {
-  try {
-    final response = await http.get(
-      Uri.parse('$baseUrl/user/symptom-profile'),
-      headers: await _authHeaders(),
-    ).timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      return {'success': true, 'data': jsonDecode(response.body)};
-    } else {
-      return {'success': false, 'message': 'Could not load health profile.'};
-    }
-  } catch (e) {
-    return {
-      'success': false,
-      'message': 'Could not connect to server. Check your connection.',
-    };
-  }
-}
+  // ── GET SYMPTOM PROFILE ───────────────────────────────────────────────
+  static Future<Map<String, dynamic>> getSymptomProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user/symptom-profile'),
+        headers: await _authHeaders(),
+      ).timeout(const Duration(seconds: 15));
 
-// ── UPDATE SYMPTOM PROFILE ────────────────────────────────────────────
-static Future<Map<String, dynamic>> updateSymptomProfile(
-    Map<String, bool?> answers) async {
-  try {
-    final response = await http.put(
-      Uri.parse('$baseUrl/user/symptom-profile'),
-      headers: await _authHeaders(),
-      body: jsonEncode(answers),
-    ).timeout(const Duration(seconds: 15));
-
-    if (response.statusCode == 200) {
-      return {'success': true};
-    } else {
-      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
+        return {'success': false, 'message': 'Could not load health profile.'};
+      }
+    } catch (e) {
       return {
         'success': false,
-        'message': body['message'] ?? 'Could not update health profile.',
+        'message': 'Could not connect to server. Check your connection.',
       };
     }
-  } catch (e) {
-    return {
-      'success': false,
-      'message': 'Could not connect to server. Check your connection.',
-    };
   }
-}
+
+  // ── UPDATE SYMPTOM PROFILE ────────────────────────────────────────────
+  static Future<Map<String, dynamic>> updateSymptomProfile(
+      Map<String, bool?> answers) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/user/symptom-profile'),
+        headers: await _authHeaders(),
+        body: jsonEncode(answers),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        final body = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': body['message'] ?? 'Could not update health profile.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
   // ── LOGOUT ───────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> logout() async {
     try {
@@ -299,7 +334,7 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
       ).timeout(const Duration(seconds: 10));
 
       await deleteToken();
-      await _storage.delete(key: 'remember_me');
+      await _storage.delete(key: _rememberKey);
       await _storage.delete(key: 'saved_email');
 
       if (response.statusCode == 200) {
@@ -310,7 +345,7 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
       }
     } catch (e) {
       await deleteToken();
-      await _storage.delete(key: 'remember_me');
+      await _storage.delete(key: _rememberKey);
       await _storage.delete(key: 'saved_email');
       return {'success': true};
     }
@@ -335,7 +370,7 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
 
       if (response.statusCode == 200) {
         await deleteToken();
-        await _storage.delete(key: 'remember_me');
+        await _storage.delete(key: _rememberKey);
         await _storage.delete(key: 'saved_email');
         return {'success': true};
       } else {
@@ -503,7 +538,8 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
       };
     }
   }
-  //Regster OTP
+
+  // ── REGISTER OTP ──────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> sendRegisterOtp({required String email}) async {
     try {
       final response = await http.post(
@@ -535,12 +571,12 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
       };
     }
   }
+
   // ── UPDATE PROFILE ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> updateProfile({
     required String firstName,
     String? middleName,
     required String lastName,
-    required String email,
     String? birthday,
   }) async {
     try {
@@ -551,7 +587,6 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
           'first_name': firstName,
           'middle_name': middleName,
           'last_name': lastName,
-          'email': email,
           'birthday': birthday,
         }),
       ).timeout(const Duration(seconds: 15));
@@ -608,6 +643,47 @@ static Future<Map<String, dynamic>> updateSymptomProfile(
       };
     }
   }
+
+    // ── CHANGE EMAIL ──────────────────────────────────────────────────────
+  // Requires the current password as re-confirmation.
+  static Future<Map<String, dynamic>> changeEmail({
+    required String newEmail,
+    required String currentPassword,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/user/change-email'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'new_email': newEmail,
+          'current_password': currentPassword,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'user': body['user']};
+      } else {
+        // Laravel validation errors come back as { errors: { field: [msg] } }
+        String message = body['message'] ?? 'Could not change email.';
+        if (body['errors'] != null) {
+          final errors = body['errors'] as Map<String, dynamic>;
+          final firstError = errors.values.first;
+          if (firstError is List && firstError.isNotEmpty) {
+            message = firstError.first.toString();
+          }
+        }
+        return {'success': false, 'message': message};
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Could not connect to server. Check your connection.',
+      };
+    }
+  }
+
   // ── UPDATE DEVICE TOKEN (for push notifications) ─────────────────────
   static Future<Map<String, dynamic>> updateDeviceToken(String token) async {
     try {

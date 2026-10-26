@@ -1,9 +1,9 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/glass.dart';
 
 // NOTE: add these two methods to ApiService, following the same pattern as
 // your other endpoints (e.g. getProfile()):
@@ -12,6 +12,13 @@ import '../services/api_service.dart';
 //   static Future<Map<String, dynamic>> updateSymptomProfile(Map<String, bool?> answers) async {
 //     ... PUT /user/symptom-profile with body: answers ...
 //   }
+
+int _ageFromBirthday(DateTime b) {
+  final t = DateTime.now();
+  var age = t.year - b.year;
+  if (t.month < b.month || (t.month == b.month && t.day < b.day)) age--;
+  return age;
+}
 
 class HealthProfileScreen extends StatefulWidget {
   const HealthProfileScreen({super.key});
@@ -22,7 +29,12 @@ class HealthProfileScreen extends StatefulWidget {
 
 class _HealthProfileScreenState extends State<HealthProfileScreen> {
   bool _isLoading = true;
+  bool _loadFailed = false;
   bool _isSaving = false;
+
+  // Age in years, or null if the birthday couldn't be loaded. Only used to
+  // decide whether to show the under-18 note.
+  int? _age;
 
   // null = unanswered, true/false = answered. Every question is skippable.
   bool? _hirsutism;
@@ -39,11 +51,31 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final result = await ApiService.getSymptomProfile();
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
+
+    // Start both requests together so the screen doesn't wait twice.
+    final symptomFuture = ApiService.getSymptomProfile();
+    final profileFuture = ApiService.getProfile();
+
+    final result = await symptomFuture;
+    final profileResult = await profileFuture;
     if (!mounted) return;
+
+    // The age is only for the note. If this fails, we just don't show it.
+    int? age;
+    if (profileResult['success'] == true) {
+      final user = profileResult['user'] as Map<String, dynamic>?;
+      final b = DateTime.tryParse((user?['birthday'] as String?) ?? '');
+      if (b != null) age = _ageFromBirthday(b);
+    }
+
     if (result['success'] == true) {
       final data = result['data'] as Map<String, dynamic>? ?? {};
       setState(() {
+        _age = age;
         _hirsutism = data['hirsutism'] as bool?;
         _acne = data['acne'] as bool?;
         _hairThinning = data['hair_thinning'] as bool?;
@@ -53,11 +85,17 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
         _isLoading = false;
       });
     } else {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _loadFailed = true;
+      });
     }
   }
 
   Future<void> _save() async {
+    // Never save over existing answers if we couldn't load them.
+    if (_loadFailed) return;
+
     setState(() => _isSaving = true);
 
     final result = await ApiService.updateSymptomProfile({
@@ -77,10 +115,10 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
         result['success'] == true
             ? 'Health profile updated'
             : (result['message'] ?? 'Could not save. Please try again.'),
-        style: _Glass.body(color: Colors.white),
+        style: Glass.body(color: Colors.white),
       ),
       backgroundColor:
-          result['success'] == true ? _Glass.blueDeep : _Glass.pinkDeep,
+          result['success'] == true ? Glass.blueDeep : Glass.pinkDeep,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
@@ -89,10 +127,10 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -100,79 +138,86 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
                 Expanded(
                   child: _isLoading
                       ? Center(
-                          child: CircularProgressIndicator(color: _Glass.blueDeep))
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildIntro(),
-                              const SizedBox(height: 16),
-                              _buildQuestionCard(
-                                title: 'Excess or unwanted hair growth',
-                                sub: 'Face, chest, or back',
-                                value: _hirsutism,
-                                onChanged: (v) => setState(() => _hirsutism = v),
+                          child: CircularProgressIndicator(color: Glass.blueDeep))
+                      : _loadFailed
+                          ? _buildLoadError()
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildIntro(),
+                                  if (_age != null && _age! < 18) ...[
+                                    const SizedBox(height: 12),
+                                    _buildYoungUserNote(),
+                                  ],
+                                  const SizedBox(height: 16),
+                                  _buildQuestionCard(
+                                    title: 'Excess or unwanted hair growth',
+                                    sub: 'Face, chest, or back',
+                                    value: _hirsutism,
+                                    onChanged: (v) =>
+                                        setState(() => _hirsutism = v),
+                                  ),
+                                  _buildQuestionCard(
+                                    title: 'Persistent acne',
+                                    sub: 'Especially jawline or chest',
+                                    value: _acne,
+                                    onChanged: (v) => setState(() => _acne = v),
+                                  ),
+                                  _buildQuestionCard(
+                                    title: 'Scalp hair thinning',
+                                    sub: 'Noticeable thinning on the scalp',
+                                    value: _hairThinning,
+                                    onChanged: (v) =>
+                                        setState(() => _hairThinning = v),
+                                  ),
+                                  _buildQuestionCard(
+                                    title: 'Difficulty losing weight',
+                                    sub: 'Or unexplained weight gain',
+                                    value: _weightDifficulty,
+                                    onChanged: (v) =>
+                                        setState(() => _weightDifficulty = v),
+                                  ),
+                                  _buildQuestionCard(
+                                    title: 'Darkened patches of skin',
+                                    sub: 'Neck, underarms, or groin',
+                                    value: _skinDarkening,
+                                    onChanged: (v) =>
+                                        setState(() => _skinDarkening = v),
+                                  ),
+                                  _buildQuestionCard(
+                                    title: 'Family history',
+                                    sub: 'PCOS or type 2 diabetes in your family',
+                                    value: _familyHistory,
+                                    onChanged: (v) =>
+                                        setState(() => _familyHistory = v),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 50,
+                                    child: ElevatedButton(
+                                      onPressed: _isSaving ? null : _save,
+                                      style: Glass.primaryButtonStyle(),
+                                      child: _isSaving
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2.5),
+                                            )
+                                          : Text('Save',
+                                              style: Glass.heading(
+                                                  size: 16,
+                                                  weight: FontWeight.w600,
+                                                  color: Colors.white)),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              _buildQuestionCard(
-                                title: 'Persistent acne',
-                                sub: 'Especially jawline or chest',
-                                value: _acne,
-                                onChanged: (v) => setState(() => _acne = v),
-                              ),
-                              _buildQuestionCard(
-                                title: 'Scalp hair thinning',
-                                sub: 'Noticeable thinning on the scalp',
-                                value: _hairThinning,
-                                onChanged: (v) =>
-                                    setState(() => _hairThinning = v),
-                              ),
-                              _buildQuestionCard(
-                                title: 'Difficulty losing weight',
-                                sub: 'Or unexplained weight gain',
-                                value: _weightDifficulty,
-                                onChanged: (v) =>
-                                    setState(() => _weightDifficulty = v),
-                              ),
-                              _buildQuestionCard(
-                                title: 'Darkened patches of skin',
-                                sub: 'Neck, underarms, or groin',
-                                value: _skinDarkening,
-                                onChanged: (v) =>
-                                    setState(() => _skinDarkening = v),
-                              ),
-                              _buildQuestionCard(
-                                title: 'Family history',
-                                sub: 'PCOS or type 2 diabetes in your family',
-                                value: _familyHistory,
-                                onChanged: (v) =>
-                                    setState(() => _familyHistory = v),
-                              ),
-                              const SizedBox(height: 20),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 50,
-                                child: ElevatedButton(
-                                  onPressed: _isSaving ? null : _save,
-                                  style: _Glass.primaryButtonStyle(),
-                                  child: _isSaving
-                                      ? const SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2.5),
-                                        )
-                                      : Text('Save',
-                                          style: _Glass.heading(
-                                              size: 16,
-                                              weight: FontWeight.w600,
-                                              color: Colors.white)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
                 ),
               ],
             ),
@@ -182,21 +227,91 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
     );
   }
 
+  Widget _buildLoadError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Glass.card(
+          radius: 14,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_outlined, size: 32, color: Glass.textMuted),
+              const SizedBox(height: 12),
+              Text(
+                "Couldn't load your health profile",
+                textAlign: TextAlign.center,
+                style: Glass.body(size: 14, weight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Check your connection and try again.',
+                textAlign: TextAlign.center,
+                style: Glass.body(size: 12, color: Glass.textMuted),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: _loadProfile,
+                  style: Glass.primaryButtonStyle(),
+                  child: Text('Retry',
+                      style: Glass.heading(
+                          size: 14,
+                          weight: FontWeight.w600,
+                          color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildIntro() {
-    return _Glass.card(
+    return Glass.card(
       radius: 14,
       padding: const EdgeInsets.all(14),
       opacity: 0.5,
       child: Row(
         children: [
-          Icon(Icons.info_outline, size: 18, color: _Glass.blueDeep),
+          Icon(Icons.info_outline, size: 18, color: Glass.blueDeep),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'These are optional and private. Answering helps give you a more '
               'complete picture alongside your cycle history — this is not a '
               'diagnosis, and none of this replaces seeing a doctor.',
-              style: _Glass.body(size: 12, color: _Glass.textMuted).copyWith(height: 1.4),
+              style: Glass.body(size: 12, color: Glass.textMuted).copyWith(height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Shown only to users under 18. Matches the backend, which doesn't count
+  // cycle irregularity toward the screening for this age group.
+  Widget _buildYoungUserNote() {
+    return Glass.card(
+      radius: 14,
+      padding: const EdgeInsets.all(14),
+      opacity: 0.5,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.favorite_border, size: 18, color: Glass.pinkDeep),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Your cycles may still be settling at your age, so irregular "
+              "periods are common and aren't counted in this screening. These "
+              "answers can't diagnose anything. If something worries you, talk "
+              "to a parent, a trusted adult, or a doctor.",
+              style: Glass.body(size: 12, color: Glass.textMuted).copyWith(height: 1.4),
             ),
           ),
         ],
@@ -212,24 +327,22 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 14,
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: _Glass.body(size: 14, weight: FontWeight.w600)),
+                style: Glass.body(size: 14, weight: FontWeight.w600)),
             const SizedBox(height: 2),
-            Text(sub, style: _Glass.body(size: 11, color: _Glass.textMuted)),
+            Text(sub, style: Glass.body(size: 11, color: Glass.textMuted)),
             const SizedBox(height: 10),
             Row(
               children: [
                 _choiceChip('Yes', value == true, () => onChanged(true)),
                 const SizedBox(width: 8),
-                _choiceChip('No', value == false, () => onChanged(false)),
-                const SizedBox(width: 8),
-                _choiceChip('Skip', value == null, () => onChanged(null)),
+                _choiceChip('No', value == false, () => onChanged(false))
               ],
             ),
           ],
@@ -244,18 +357,18 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? _Glass.blueDeep : Colors.white.withOpacity(0.4),
+          color: selected ? Glass.blueDeep : Colors.white.withOpacity(0.4),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? _Glass.blueDeep : Colors.white.withOpacity(0.7),
+            color: selected ? Glass.blueDeep : Colors.white.withOpacity(0.7),
           ),
         ),
         child: Text(
           label,
-          style: _Glass.body(
+          style: Glass.body(
             size: 12,
             weight: FontWeight.w600,
-            color: selected ? Colors.white : _Glass.textMuted,
+            color: selected ? Colors.white : Glass.textMuted,
           ),
         ),
       ),
@@ -265,7 +378,7 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
   Widget _buildTopBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 18,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -277,159 +390,13 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
                 height: 32,
                 decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.5), shape: BoxShape.circle),
-                child: Icon(Icons.chevron_left, color: _Glass.textDark, size: 20),
+                child: Icon(Icons.chevron_left, color: Glass.textDark, size: 20),
               ),
             ),
             const SizedBox(width: 10),
-            Text('Health Profile', style: _Glass.heading(size: 18, weight: FontWeight.w600)),
+            Text('Health Profile', style: Glass.heading(size: 18, weight: FontWeight.w600)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static ButtonStyle primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: blueDeep,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: blueDeep.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 0,
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }

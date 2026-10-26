@@ -57,6 +57,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final DateTime _today = DateTime.now();
   DateTime _currentMonth = DateTime.now();
 
+  // Today with the time stripped — used for "is this day in the future?" checks.
+  DateTime get _todayDate => DateTime(_today.year, _today.month, _today.day);
+
+  // Longest period (in logged days) allowed within a single cycle.
+  static const int _maxPeriodDays = 7;
+
   // key = DateTime(year, month, day)  value = entry — populated from the API
   final Map<DateTime, _CycleEntry> _cycleEntries = {};
   bool _isLoadingCycles = true;
@@ -65,6 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double? _avgCycleLength; // falls back to _assumedCycleLength until loaded
   String _confidence = 'insufficient_data';
   Map<String, dynamic>? _nextPredictedRange; // {earliest, latest}
+  String? _nextPredictedDate;   // 'YYYY-MM-DD' from the API
+  String? _predictionNote;      // e.g. "Your cycles have varied a lot recently..."
   bool _isIrregular = false;
   Map<String, dynamic>? _cycleHealthSignals;
   bool _healthBannerDismissed = false;
@@ -190,6 +198,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _avgCycleLength = (data['average_cycle_length'] as num?)?.toDouble();
           _confidence = data['confidence'] ?? 'insufficient_data';
           _nextPredictedRange = data['next_predicted_range'];
+          _nextPredictedDate = data['next_predicted_period'];
+          _predictionNote = data['prediction_note'];
           _isIrregular = data['is_irregular'] ?? false;
           _cycleHealthSignals = data['cycle_health_signals'];
         });
@@ -247,6 +257,64 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ── Log validation rules ──────────────────────────────────────────────────
+  // 1) No logging for future dates.
+  // 2) A single cycle (a run of logged days with gaps of at most 1 missed day,
+  //    the same grouping used to find the period start) can't exceed
+  //    _maxPeriodDays logged days.
+  // Returns an error message, or null if the log is allowed.
+
+  /// How many logged days the cluster containing [day] would have if [day]
+  /// were added (or already is) in the logged set.
+  int _clusterSizeWith(DateTime day) {
+    final target = DateTime(day.year, day.month, day.day);
+    final dates = <DateTime>{..._cycleEntries.keys, target}.toList()..sort();
+    final idx = dates.indexOf(target);
+
+    int count = 1;
+    for (int i = idx; i > 0; i--) {
+      if (dates[i].difference(dates[i - 1]).inDays <= 2) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    for (int i = idx; i < dates.length - 1; i++) {
+      if (dates[i + 1].difference(dates[i]).inDays <= 2) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
+  String? _validateLog(DateTime day) {
+    final d = DateTime(day.year, day.month, day.day);
+
+    if (d.isAfter(_todayDate)) {
+      return "You can't log a cycle for a future date.";
+    }
+
+    // Editing an already-logged day never adds to the count.
+    final isNewEntry = !_cycleEntries.containsKey(d);
+    if (isNewEntry && _clusterSizeWith(d) > _maxPeriodDays) {
+      return 'A period can last up to $_maxPeriodDays days per cycle. '
+          'This entry would go over that limit.';
+    }
+    return null;
+  }
+
+  void _showSnack(String msg, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: _Glass.body(color: Colors.white)),
+      backgroundColor: isError ? const Color(0xFFE24B4A) : _Glass.pinkDeep,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
   // Derived — days with logged entries this month
   List<int> get _periodDays => _cycleEntries.entries
       .where((e) =>
@@ -255,14 +323,26 @@ class _HomeScreenState extends State<HomeScreen> {
       .map((e) => e.key.day)
       .toList();
 
-  // Predicted days this month, derived from the API's next_predicted_range
+  // Most days to highlight either side of the predicted date, however wide
+  // the server's range is. A wide range is explained in text instead.
+  static const int _maxHighlightDays = 5; // 5 before + center... see below: 10 days total
+
   List<int> get _predictedDays {
     final range = _nextPredictedRange;
     if (range == null || range['earliest'] == null || range['latest'] == null) {
       return [];
     }
-    final earliest = DateTime.parse(range['earliest']);
-    final latest = DateTime.parse(range['latest']);
+    var earliest = DateTime.parse(range['earliest']);
+    var latest = DateTime.parse(range['latest']);
+
+    final center = _nextPredictedDate != null
+        ? DateTime.parse(_nextPredictedDate!)
+        : earliest.add(Duration(days: latest.difference(earliest).inDays ~/ 2));
+    final lo = center.subtract(const Duration(days: _maxHighlightDays));
+    final hi = center.add(const Duration(days: _maxHighlightDays - 1));
+    if (earliest.isBefore(lo)) earliest = lo;
+    if (latest.isAfter(hi)) latest = hi;
+
     final days = <int>[];
     for (var d = earliest; !d.isAfter(latest); d = d.add(const Duration(days: 1))) {
       if (d.year == _currentMonth.year && d.month == _currentMonth.month) {
@@ -415,6 +495,123 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Prediction note card ──────────────────────────────────────────────────
+  // Shows the estimated window for the next period plus a reminder that
+  // predictions are estimates, not guarantees.
+  String _shortDate(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[d.month - 1]} ${d.day}';
+  }
+
+  String? get _predictionWindowText {
+    final range = _nextPredictedRange;
+    if (range == null || range['earliest'] == null || range['latest'] == null) {
+      return null;
+    }
+    try {
+      final earliest = DateTime.parse(range['earliest']);
+      final latest = DateTime.parse(range['latest']);
+      if (DateUtils.isSameDay(earliest, latest)) {
+        return 'Your next period may start around ${_shortDate(earliest)}.';
+      }
+      return 'Your next period may start between '
+          '${_shortDate(earliest)} and ${_shortDate(latest)}.';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildPredictionNoteCard() {
+    final windowText = _predictionWindowText;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: _Glass.card(
+        radius: 18,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _Glass.blue.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.event_available_outlined,
+                      color: _Glass.blueDeep, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Next period estimate',
+                        style: _Glass.heading(size: 13.5, weight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        windowText ??
+                            'Log a few more cycles and we\'ll estimate when your next period may start.',
+                        style: _Glass.body(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: windowText != null
+                                    ? _Glass.blueDeep
+                                    : _Glass.textMuted)
+                            .copyWith(height: 1.4),
+                      ),
+                      if (_predictionNote != null &&
+                          _predictionNote!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _predictionNote!,
+                          style: _Glass.body(size: 11.5, color: _Glass.textMuted)
+                              .copyWith(height: 1.4),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _Glass.pink.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: _Glass.pinkDeep),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Predictions are estimates based on your logged cycles and '
+                      'are not 100% accurate. Cycles can vary from month to month.',
+                      style: _Glass.body(size: 11, color: _Glass.textMuted)
+                          .copyWith(height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Phase ring widget ─────────────────────────────────────────────────────
   Widget _buildPhaseRingCard() {
     final day = _cycleDay;
@@ -503,6 +700,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const Positioned.fill(child: _AmbientBackground()),
           SafeArea(
+            bottom: false,
             child: Column(
               children: [
                 _buildTopBar(),
@@ -512,14 +710,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildHealthProfileBanner(),
                       KeyedSubtree(key: _calendarKey, child: _buildCalendar()),
+                      _buildPredictionNoteCard(),
                       KeyedSubtree(key: _addCycleKey, child: _buildAddCycleButton()),
                     ],
                   ),
                   ),
                 ),
-               AppBottomNav(
-                  currentIndex: 0,
-                  onAddPressed: _showAddPeriodSheet,
+                Container(
+                  color: Colors.white,
+                  child: SafeArea(
+                    top: false,
+                    child: AppBottomNav(
+                      currentIndex: 0,
+                      onAddPressed: _showAddPeriodSheet,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -528,6 +733,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   // ── Top Bar ───────────────────────────────────────────────────────────────
   Widget _buildTopBar() {
@@ -680,6 +886,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     final tapped = DateTime(
                         _currentMonth.year, _currentMonth.month, day);
+                    if (tapped.isAfter(_todayDate)) {
+                      _showSnack("You can't log a cycle for a future date.");
+                      return;
+                    }
                     if (_cycleEntries.containsKey(tapped)) {
                       _showUpdateDeleteSheet(tapped);
                     } else {
@@ -1055,15 +1265,33 @@ class _HomeScreenState extends State<HomeScreen> {
             energies: energies,
             onPrevMonth: () => setSheet(() =>
                 sheetMonth = DateTime(sheetMonth.year, sheetMonth.month - 1)),
-            onNextMonth: () => setSheet(() =>
-                sheetMonth = DateTime(sheetMonth.year, sheetMonth.month + 1)),
-            onDayTap: (d) => setSheet(() => pickedDay = d),
+            // Can't browse past the current month — nothing to log there.
+            onNextMonth: () {
+              final next = DateTime(sheetMonth.year, sheetMonth.month + 1);
+              if (next.isAfter(DateTime(_today.year, _today.month))) return;
+              setSheet(() => sheetMonth = next);
+            },
+            onDayTap: (d) {
+              if (d.isAfter(_todayDate)) {
+                _showSnack("You can't log a cycle for a future date.");
+                return;
+              }
+              setSheet(() => pickedDay = d);
+            },
             onFlowTap: (f) => setSheet(() => selectedFlow = f),
             onEnergyTap: (e) => setSheet(() => selectedEnergy = e),
             saveLabel: 'Save Cycle',
             canSave: pickedDay != null,
             onSave: () async {
               if (pickedDay == null) return;
+
+              final error = _validateLog(pickedDay!);
+              if (error != null) {
+                Navigator.pop(ctx);
+                _showSnack(error);
+                return;
+              }
+
               final saved = await _savePeriodLog(
                   pickedDay!, selectedFlow, selectedEnergy);
               Navigator.pop(ctx);
@@ -1128,6 +1356,13 @@ class _HomeScreenState extends State<HomeScreen> {
             saveLabel: 'Save Cycle',
             canSave: true,
             onSave: () async {
+              final error = _validateLog(day);
+              if (error != null) {
+                Navigator.pop(ctx);
+                _showSnack(error);
+                return;
+              }
+
               final saved = await _savePeriodLog(day, selectedFlow, selectedEnergy);
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -1487,12 +1722,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             d.month == _today.month &&
                             d.day == _today.day;
                         final isLogged = _cycleEntries.containsKey(d);
+                        final isFuture = d.isAfter(_todayDate);
 
                         Color bg;
                         Color txt;
                         if (isPicked) {
                           bg = _Glass.pinkDeep;
                           txt = Colors.white;
+                        } else if (isFuture) {
+                          // Future days can't be logged — shown greyed out.
+                          bg = Colors.transparent;
+                          txt = _Glass.textHint.withOpacity(0.5);
                         } else if (isLogged) {
                           bg = _Glass.pink.withOpacity(0.2);
                           txt = _Glass.pinkDeep;
@@ -1652,6 +1892,12 @@ class _HomeScreenState extends State<HomeScreen> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
+      return;
+    }
+
+    final error = _validateLog(_today);
+    if (error != null) {
+      _showSnack(error);
       return;
     }
 

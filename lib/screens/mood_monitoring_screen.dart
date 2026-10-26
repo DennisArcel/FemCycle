@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/coach_mark_overlay.dart';
 import '../services/tutorial_storage_service.dart';
+import '../widgets/glass.dart';
 
 // ── Glass design tokens — shared look, same as home_screen.dart ───────────
 class _Glass {
@@ -37,9 +38,7 @@ class _Glass {
   static Widget glassCard({required Widget child, EdgeInsets? padding, double radius = 20, Color? borderColor}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
+      child: GlassBlur(sigma: 18, child: Container(
           padding: padding ?? const EdgeInsets.all(14),
           decoration: card(radius: radius, borderColor: borderColor),
           child: child,
@@ -55,30 +54,37 @@ class _AmbientBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
-      child: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFEEF2FB), Color(0xFFF7EEF6), Color(0xFFFDEFF3)],
+      child: RepaintBoundary(
+        child: Stack(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFEEF2FB), Color(0xFFF7EEF6), Color(0xFFFDEFF3)],
+                ),
               ),
             ),
-          ),
-          Positioned(top: -100, left: -80, child: _blob(220, _Glass.blue.withOpacity(0.35))),
-          Positioned(bottom: -120, right: -60, child: _blob(200, _Glass.pink.withOpacity(0.30))),
-          Positioned(top: 260, right: -40, child: _blob(160, _Glass.purple.withOpacity(0.25))),
-        ],
+            Positioned(top: -190, left: -170, child: _blob(400, _Glass.blue.withOpacity(0.40))),
+            Positioned(bottom: -200, right: -140, child: _blob(360, _Glass.pink.withOpacity(0.34))),
+            Positioned(top: 195, right: -105, child: _blob(290, _Glass.purple.withOpacity(0.28))),
+          ],
+        ),
       ),
     );
   }
 
+  // Radial gradient instead of a blur filter: same soft glow, almost free.
   Widget _blob(double size, Color color) {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-        child: Container(width: size, height: size, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, color.withOpacity(0)]),
+        ),
       ),
     );
   }
@@ -624,28 +630,45 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+                    Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(color: _cycleHealthColor.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                    color: _cycleHealthColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Icon(_cycleHealthIcon, color: _cycleHealthColor, size: 18),
               ),
               const SizedBox(width: 10),
               Text('PCOS Detection', style: _Glass.display(size: 15)),
               if (_isLoadingPredictions) ...[
                 const SizedBox(width: 8),
-                SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: _Glass.blue)),
+                SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _Glass.blue)),
               ],
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _cycleHealthColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
-                child: Text(
-                  _showPatternMeter
-                      ? '$_cycleHealthLevel • $_patternMatchLabel'
-                      : _cycleHealthLevel,
-                  style: GoogleFonts.quicksand(fontSize: 11, fontWeight: FontWeight.w700, color: _cycleHealthColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: _cycleHealthColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text(
+                      _cycleHealthLevel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.quicksand(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _cycleHealthColor),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -735,9 +758,7 @@ class _MoodMonitoringScreenState extends State<MoodMonitoringScreen> {
             margin: const EdgeInsets.only(bottom: 8),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
+              child: GlassBlur(sigma: 12, child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.38),

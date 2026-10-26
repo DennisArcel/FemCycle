@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +7,7 @@ import '../services/api_service.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/coach_mark_overlay.dart';
 import '../services/tutorial_storage_service.dart';
+import '../widgets/glass.dart';
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -141,7 +141,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
       // One or more chips to render — an entry can now have multiple moods
       // plus a free-typed "Others" mood, comma-separated in `moodField`.
       'moodChips': _parseMoodChips(moodField),
-      'accentColor': _Glass.blueDeep,
+      'accentColor': Glass.blueDeep,
       'time': _formatTime(createdAt),
     };
   }
@@ -223,11 +223,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       bottomNavigationBar: const AppBottomNav(currentIndex: 1),
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Stack(
               children: [
@@ -238,7 +238,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       child: _isLoading
                           ? Center(
                               child: CircularProgressIndicator(
-                                color: _Glass.blueDeep,
+                                color: Glass.blueDeep,
                               ),
                             )
                           : _errorMessage != null
@@ -260,7 +260,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       height: 56,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [_Glass.pinkDeep, _Glass.purpleDeep],
+                          colors: [Glass.pinkDeep, Glass.purpleDeep],
                         ),
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -269,7 +269,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: _Glass.pinkDeep.withOpacity(0.35),
+                            color: Glass.pinkDeep.withOpacity(0.35),
                             blurRadius: 16,
                             offset: const Offset(0, 6),
                           ),
@@ -292,14 +292,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
       child: KeyedSubtree(
         key: _topBarKey,
-        child: _Glass.card(
+        child: Glass.card(
         radius: 18,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
             Text(
               'My Diary',
-              style: _Glass.heading(size: 18, weight: FontWeight.w600),
+              style: Glass.heading(size: 18, weight: FontWeight.w600),
             ),
             const Spacer(),
             GestureDetector(
@@ -308,11 +308,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: _Glass.blue.withOpacity(0.2),
+                  color: Glass.blue.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
+                child: Icon(Icons.question_mark_rounded, size: 15, color: Glass.blueDeep),
               ),
             ),
           ],
@@ -327,7 +327,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final months = grouped.keys.toList();
 
     return RefreshIndicator(
-      color: _Glass.blueDeep,
+      color: Glass.blueDeep,
       onRefresh: _loadEntries,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 90),
@@ -342,10 +342,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 padding: const EdgeInsets.only(bottom: 10, top: 4, left: 4),
                 child: Text(
                   month.toUpperCase(),
-                  style: _Glass.body(
+                  style: Glass.body(
                     size: 11,
                     weight: FontWeight.w700,
-                    color: _Glass.textMuted,
+                    color: Glass.textMuted,
                   ).copyWith(letterSpacing: 1.2),
                 ),
               ),
@@ -365,7 +365,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
       onTap: () => _openEntry(entry),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        child: _Glass.card(
+        child: Glass.card(
           radius: 18,
           padding: EdgeInsets.zero,
           child: Container(
@@ -381,7 +381,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                     children: [
                       Text(
                         '${entry['day']}',
-                        style: _Glass.heading(
+                        style: Glass.heading(
                           size: 22,
                           weight: FontWeight.w700,
                           color: accentColor,
@@ -389,7 +389,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       ),
                       Text(
                         entry['weekday'] as String,
-                        style: _Glass.body(size: 10, color: _Glass.textHint),
+                        style: Glass.body(size: 10, color: Glass.textHint),
                       ),
                     ],
                   ),
@@ -400,16 +400,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       children: [
                         Text(
                           entry['title'] as String,
-                          style: _Glass.body(size: 14, weight: FontWeight.w700),
+                          style: Glass.body(size: 14, weight: FontWeight.w700),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           entry['preview'] as String,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: _Glass.body(
+                          style: Glass.body(
                             size: 12,
-                            color: _Glass.textMuted,
+                            color: Glass.textMuted,
                           ).copyWith(height: 1.4),
                         ),
                         const SizedBox(height: 8),
@@ -443,7 +443,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                           const SizedBox(width: 5),
                                           Text(
                                             chip['label'] as String,
-                                            style: _Glass.body(
+                                            style: Glass.body(
                                               size: 10,
                                               weight: FontWeight.w600,
                                               color: chip['color'] as Color,
@@ -458,7 +458,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                             const SizedBox(width: 6),
                             Text(
                               entry['time'] as String,
-                              style: _Glass.body(size: 10, color: _Glass.textHint),
+                              style: Glass.body(size: 10, color: Glass.textHint),
                             ),
                           ],
                         ),
@@ -478,23 +478,23 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: _Glass.card(
+        child: Glass.card(
           padding: const EdgeInsets.all(28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.menu_book_outlined,
-                  size: 46, color: _Glass.textMuted.withOpacity(0.6)),
+                  size: 46, color: Glass.textMuted.withOpacity(0.6)),
               const SizedBox(height: 16),
               Text(
                 'No entries yet',
-                style: _Glass.heading(size: 17, weight: FontWeight.w700),
+                style: Glass.heading(size: 17, weight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
                 'Tap + to write your first diary entry',
                 textAlign: TextAlign.center,
-                style: _Glass.body(size: 13, color: _Glass.textMuted),
+                style: Glass.body(size: 13, color: Glass.textMuted),
               ),
             ],
           ),
@@ -507,173 +507,27 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: _Glass.card(
+        child: Glass.card(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_outlined, size: 44, color: _Glass.textHint),
+              Icon(Icons.cloud_off_outlined, size: 44, color: Glass.textHint),
               const SizedBox(height: 14),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: _Glass.body(size: 13, color: _Glass.textMuted),
+                style: Glass.body(size: 13, color: Glass.textMuted),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadEntries,
-                style: _Glass.primaryButtonStyle(),
-                child: Text('Try Again', style: _Glass.body(color: Colors.white)),
+                style: Glass.primaryButtonStyle(),
+                child: Text('Try Again', style: Glass.body(color: Colors.white)),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static ButtonStyle primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: blueDeep,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: blueDeep.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 0,
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }

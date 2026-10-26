@@ -1,9 +1,9 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/glass.dart';
 
 class AccountInfoScreen extends StatefulWidget {
   const AccountInfoScreen({super.key});
@@ -20,6 +20,8 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   final _emailController = TextEditingController();
 
   DateTime? _birthdayDate;
+  // True once a birthday is saved on the server. It can't be changed after that.
+  bool _birthdayLocked = false;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMessage;
@@ -86,6 +88,8 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                 '${months[_birthdayDate!.month - 1]} ${_birthdayDate!.day}, ${_birthdayDate!.year}';
           }
         }
+        // A saved birthday is locked.
+        _birthdayLocked = _birthdayDate != null;
         _isLoading = false;
       });
     } else {
@@ -99,9 +103,10 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   Future<void> _handleSave() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
-    final email = _emailController.text.trim();
 
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
+    // The email is changed through its own dialog, so it is neither
+    // validated nor sent here.
+    if (firstName.isEmpty || lastName.isEmpty) {
       _showSnack('Please fill in all required fields.', isError: true);
       return;
     }
@@ -120,7 +125,6 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
           ? null
           : _middleNameController.text.trim(),
       lastName: lastName,
-      email: email,
       birthday: birthdayStr,
     );
 
@@ -134,6 +138,8 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
           _displayName =
               '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim();
           _displayEmail = user['email'] ?? '';
+          // Once a birthday is saved, lock it.
+          if (user['birthday'] != null) _birthdayLocked = true;
         });
       }
       _showSnack('Account information updated!', isError: false);
@@ -145,23 +151,41 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   void _showSnack(String msg, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: _Glass.body(color: Colors.white)),
-        backgroundColor: isError ? _Glass.pinkDeep : _Glass.blueDeep,
+        content: Text(msg, style: Glass.body(color: Colors.white)),
+        backgroundColor: isError ? Glass.pinkDeep : Glass.blueDeep,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
+  Future<void> _showChangeEmailDialog() async {
+    final newEmail = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ChangeEmailDialog(currentEmail: _emailController.text),
+    );
+    if (newEmail == null || !mounted) return;
+    setState(() {
+      _emailController.text = newEmail;
+      _displayEmail = newEmail;
+    });
+    _showSnack('Email updated!', isError: false);
+  }
+
   Future<void> _pickBirthday() async {
+    if (_birthdayLocked) return;
+
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _birthdayDate ?? DateTime(2000, 1, 15),
+      initialDate: _birthdayDate ?? DateTime(now.year - 18, now.month, now.day),
       firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
+      // Users must be at least 15.
+      lastDate: DateTime(now.year - 15, now.month, now.day),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(primary: _Glass.blueDeep),
+          colorScheme: ColorScheme.light(primary: Glass.blueDeep),
         ),
         child: child!,
       ),
@@ -182,10 +206,10 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -193,7 +217,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                 Expanded(
                   child: _isLoading
                       ? Center(
-                          child: CircularProgressIndicator(color: _Glass.blueDeep))
+                          child: CircularProgressIndicator(color: Glass.blueDeep))
                       : _errorMessage != null
                           ? _buildErrorState()
                           : SingleChildScrollView(
@@ -208,8 +232,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                                     _buildField('LAST NAME', _lastNameController),
                                     _buildBirthdayField(),
                                     _buildAgeField(),
-                                    _buildField('EMAIL ADDRESS', _emailController,
-                                        keyboardType: TextInputType.emailAddress),
+                                    _buildEmailField(),
                                   ]),
                                   const SizedBox(height: 16),
                                   SizedBox(
@@ -217,7 +240,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                                     height: 50,
                                     child: ElevatedButton(
                                       onPressed: _isSaving ? null : _handleSave,
-                                      style: _Glass.primaryButtonStyle(),
+                                      style: Glass.primaryButtonStyle(),
                                       child: _isSaving
                                           ? const SizedBox(
                                               width: 22,
@@ -228,7 +251,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                                               ),
                                             )
                                           : Text('Save Changes',
-                                              style: _Glass.heading(
+                                              style: Glass.heading(
                                                   size: 16,
                                                   weight: FontWeight.w600,
                                                   color: Colors.white)),
@@ -249,7 +272,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   Widget _buildTopBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 18,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -261,12 +284,12 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                 height: 32,
                 decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.5), shape: BoxShape.circle),
-                child: Icon(Icons.chevron_left, color: _Glass.textDark, size: 20),
+                child: Icon(Icons.chevron_left, color: Glass.textDark, size: 20),
               ),
             ),
             const SizedBox(width: 10),
-            Text('Account Information',
-                style: _Glass.heading(size: 16, weight: FontWeight.w600)),
+            Text('Personal Details',
+                style: Glass.heading(size: 16, weight: FontWeight.w600)),
           ],
         ),
       ),
@@ -276,53 +299,45 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   Widget _buildAvatar() {
     return Column(
       children: [
-        Stack(
-          children: [
-            _Glass.frostedCircle(
-              size: 85,
-              child: Image.asset('assets/images/avatar.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFF5D5A0).withOpacity(0.6),
-                        child: Icon(Icons.person, size: 45, color: _Glass.pinkDeep),
-                      )),
-            ),
-            Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: [_Glass.purpleDeep, _Glass.blueDeep]),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: const Icon(Icons.edit, color: Colors.white, size: 13),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(_displayName.isNotEmpty ? _displayName : 'Your Name',
-            style: _Glass.heading(size: 16, weight: FontWeight.w700)),
-        const SizedBox(height: 4),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          width: 100,
+          height: 100,
           decoration: BoxDecoration(
-            color: _Glass.blue.withOpacity(0.25),
-            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(colors: [Glass.pinkDeep, Glass.purpleDeep]),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.8), width: 3),
           ),
-          child: Text(_displayEmail.isNotEmpty ? _displayEmail : '',
-              style: _Glass.body(size: 12, color: _Glass.blueDeep)),
+          alignment: Alignment.center,
+          child: Text(
+            _displayName.isNotEmpty ? _displayName[0].toUpperCase() : 'U',
+            style: Glass.heading(
+                size: 38, weight: FontWeight.w700, color: Colors.white),
+          ),
         ),
+        const SizedBox(height: 12),
+        Text(
+          _displayName.isNotEmpty ? _displayName : 'Your Name',
+          style: Glass.heading(size: 18, weight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        if (_displayEmail.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+            decoration: BoxDecoration(
+              color: Glass.blue.withOpacity(0.25),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _displayEmail,
+              style: Glass.body(size: 13, color: Glass.blueDeep),
+            ),
+          ),
       ],
     );
   }
 
   Widget _buildFieldCard(List<Widget> children) {
-    return _Glass.card(
+    return Glass.card(
       radius: 16,
       padding: EdgeInsets.zero,
       child: Column(children: children),
@@ -339,16 +354,16 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: _Glass.body(
+              style: Glass.body(
                 size: 10,
                 weight: FontWeight.w700,
-                color: _Glass.textMuted,
+                color: Glass.textMuted,
               ).copyWith(letterSpacing: 0.5)),
           const SizedBox(height: 4),
           TextField(
             controller: controller,
             keyboardType: keyboardType,
-            style: _Glass.body(size: 14),
+            style: Glass.body(size: 14),
             decoration: const InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
@@ -368,28 +383,28 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('AGE',
-              style: _Glass.body(
+              style: Glass.body(
                 size: 10,
                 weight: FontWeight.w700,
-                color: _Glass.textMuted,
+                color: Glass.textMuted,
               ).copyWith(letterSpacing: 0.5)),
           const SizedBox(height: 4),
           Row(
             children: [
               Text(
                 _birthdayDate != null ? '$_age years old' : '—',
-                style: _Glass.body(size: 14),
+                style: Glass.body(size: 14),
               ),
               if (_birthdayDate != null) ...[
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _Glass.blue.withOpacity(0.2),
+                    color: Glass.blue.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text('Auto-calculated',
-                      style: _Glass.body(size: 10, color: _Glass.blueDeep)),
+                      style: Glass.body(size: 10, color: Glass.blueDeep)),
                 ),
               ],
             ],
@@ -401,7 +416,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
 
   Widget _buildBirthdayField() {
     return GestureDetector(
-      onTap: _pickBirthday,
+      onTap: _birthdayLocked ? null : _pickBirthday,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -410,10 +425,10 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('BIRTHDAY',
-                style: _Glass.body(
+                style: Glass.body(
                   size: 10,
                   weight: FontWeight.w700,
-                  color: _Glass.textMuted,
+                  color: Glass.textMuted,
                 ).copyWith(letterSpacing: 0.5)),
             const SizedBox(height: 4),
             Row(
@@ -423,19 +438,73 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                     _birthdayController.text.isEmpty
                         ? 'Tap to select'
                         : _birthdayController.text,
-                    style: _Glass.body(
+                    style: Glass.body(
                       size: 14,
                       color: _birthdayController.text.isEmpty
-                          ? _Glass.textHint
-                          : _Glass.textDark,
+                          ? Glass.textHint
+                          : Glass.textDark,
                     ),
                   ),
                 ),
-                Icon(Icons.calendar_today, size: 15, color: _Glass.blueDeep),
+                Icon(
+                  _birthdayLocked ? Icons.lock_outline : Icons.calendar_today,
+                  size: 15,
+                  color: _birthdayLocked ? Glass.textMuted : Glass.blueDeep,
+                ),
               ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _birthdayLocked
+                  ? "Your birthday can't be changed."
+                  : "Once saved, your birthday can't be changed.",
+              style: Glass.body(size: 11, color: Glass.textMuted),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // The email can only be changed through the dialog, which requires the
+  // current password.
+  Widget _buildEmailField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('EMAIL ADDRESS',
+              style: Glass.body(
+                size: 10,
+                weight: FontWeight.w700,
+                color: Glass.textMuted,
+              ).copyWith(letterSpacing: 0.5)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _emailController.text,
+                  style: Glass.body(size: 14, color: Glass.textDark),
+                ),
+              ),
+              GestureDetector(
+                onTap: _showChangeEmailDialog,
+                child: Text('Change email',
+                    style: Glass.body(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: Glass.blueDeep)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "You'll need your current password to change your email.",
+            style: Glass.body(size: 11, color: Glass.textMuted),
+          ),
+        ],
       ),
     );
   }
@@ -444,23 +513,23 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: _Glass.card(
+        child: Glass.card(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_outlined, size: 44, color: _Glass.textHint),
+              Icon(Icons.cloud_off_outlined, size: 44, color: Glass.textHint),
               const SizedBox(height: 14),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: _Glass.body(size: 13, color: _Glass.textMuted),
+                style: Glass.body(size: 13, color: Glass.textMuted),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadProfile,
-                style: _Glass.primaryButtonStyle(),
-                child: Text('Try Again', style: _Glass.body(color: Colors.white)),
+                style: Glass.primaryButtonStyle(),
+                child: Text('Try Again', style: Glass.body(color: Colors.white)),
               ),
             ],
           ),
@@ -470,167 +539,139 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   }
 }
 
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  /// A circular frosted-glass avatar/logo frame.
-  static Widget frostedCircle({required double size, required Widget child}) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.5),
-            border: Border.all(color: Colors.white.withOpacity(0.8), width: 3),
-          ),
-          child: ClipOval(child: child),
-        ),
-      ),
-    );
-  }
-
-  static ButtonStyle primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: blueDeep,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: blueDeep.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 0,
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
+class _ChangeEmailDialog extends StatefulWidget {
+  final String currentEmail;
+  const _ChangeEmailDialog({required this.currentEmail});
 
   @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
+  State<_ChangeEmailDialog> createState() => _ChangeEmailDialogState();
 }
 
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
+class _ChangeEmailDialogState extends State<_ChangeEmailDialog> {
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _obscure = true;
+  bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
+  Future<void> _submit() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+
+    final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    if (!valid) {
+      setState(() => _error = 'Enter a valid email address.');
+      return;
+    }
+    if (email.toLowerCase() == widget.currentEmail.toLowerCase()) {
+      setState(() => _error = 'That is already your email.');
+      return;
+    }
+    if (password.isEmpty) {
+      setState(() => _error = 'Enter your current password.');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final result = await ApiService.changeEmail(
+      newEmail: email,
+      currentPassword: password,
     );
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final user = result['user'] as Map<String, dynamic>?;
+      Navigator.pop(context, (user?['email'] as String?) ?? email);
+    } else {
+      setState(() {
+        _submitting = false;
+        _error = result['message'] ?? 'Could not change email.';
+      });
+    }
   }
 
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  InputDecoration _decoration(String hint, {Widget? suffix}) => InputDecoration(
+        hintText: hint,
+        hintStyle: Glass.body(size: 14, color: Glass.textHint),
+        suffixIcon: suffix,
+        isDense: true,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text('Change email',
+          style: Glass.heading(size: 17, weight: FontWeight.w700)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              enabled: !_submitting,
+              style: Glass.body(size: 14),
+              decoration: _decoration('New email address'),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _passwordCtrl,
+              obscureText: _obscure,
+              enabled: !_submitting,
+              style: Glass.body(size: 14),
+              onSubmitted: (_) => _submit(),
+              decoration: _decoration(
+                'Current password',
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscure ? Icons.visibility_off : Icons.visibility,
+                    size: 18,
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!,
+                  style: Glass.body(size: 12, color: Glass.pinkDeep)),
+            ],
+          ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: Text('Cancel', style: Glass.body(color: Glass.textMuted)),
+        ),
+        ElevatedButton(
+          onPressed: _submitting ? null : _submit,
+          style: Glass.primaryButtonStyle(),
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2),
+                )
+              : Text('Update', style: Glass.body(color: Colors.white)),
+        ),
+      ],
     );
   }
 }

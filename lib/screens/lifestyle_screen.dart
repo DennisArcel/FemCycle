@@ -1,14 +1,21 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/coach_mark_overlay.dart';
 import '../services/tutorial_storage_service.dart';
+import '../widgets/glass.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA MODELS
 // ─────────────────────────────────────────────────────────────────────────────
+
+class LifestyleSource {
+  final String name;
+  final String url;
+  const LifestyleSource({required this.name, required this.url});
+}
 
 class LifestyleItem {
   final String name;
@@ -22,6 +29,8 @@ class LifestyleItem {
   // Optional per-step local asset images. If provided, the detail screen
   // shows stepImages[currentStep] instead of the single imageUrl.
   final List<String>? stepImages;
+  // Optional reference shown at the bottom of the detail screen.
+  final LifestyleSource? source;
 
   const LifestyleItem({
     required this.name,
@@ -33,6 +42,7 @@ class LifestyleItem {
     required this.tip,
     required this.steps,
     this.stepImages,
+    this.source,
   });
 }
 
@@ -59,6 +69,53 @@ class PhaseData {
     required this.productivity,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REFERENCES
+// Reused from the Learn module. Swap in more specific sources per item
+// whenever convenient.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _srcCycleSyncing = LifestyleSource(
+  name: 'Healthline',
+  url: 'https://www.healthline.com/health/womens-health/guide-to-cycle-syncing-how-to-start',
+);
+const _srcExercise = LifestyleSource(
+  name: 'Healthline',
+  url: 'https://www.healthline.com/health/fitness/female-hormones-exercise',
+);
+const _srcPeriodFood = LifestyleSource(
+  name: 'Healthline',
+  url: 'https://www.healthline.com/health/womens-health/what-to-eat-during-period',
+);
+const _srcInflammation = LifestyleSource(
+  name: 'Healthline',
+  url: 'https://www.healthline.com/health/womens-health/inflammatory-pcos',
+);
+const _srcDietPms = LifestyleSource(
+  name: 'WebMD',
+  url: 'https://www.webmd.com/women/pms/features/diet-and-pms',
+);
+const _srcPmsFreeDiet = LifestyleSource(
+  name: 'WebMD',
+  url: 'https://www.webmd.com/women/features/the-pms-free-diet',
+);
+const _srcWhatIsPms = LifestyleSource(
+  name: 'WebMD',
+  url: 'https://www.webmd.com/women/pms/what-is-pms',
+);
+const _srcLuteal = LifestyleSource(
+  name: 'Cleveland Clinic',
+  url: 'https://my.clevelandclinic.org/health/articles/24417-luteal-phase',
+);
+const _srcCycle = LifestyleSource(
+  name: 'Cleveland Clinic',
+  url: 'https://my.clevelandclinic.org/health/articles/10132-menstrual-cycle',
+);
+const _srcStress = LifestyleSource(
+  name: 'Cleveland Clinic',
+  url: 'https://health.clevelandclinic.org/can-stress-cause-you-to-skip-a-period',
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UNSPLASH IMAGE URLS
@@ -124,7 +181,9 @@ const _network      = '${_u}1573496267526-08a69e46a409?w=600&q=80&fit=crop'; // 
 const _present      = '${_u}1758518727888-ffa196002e59?w=600&q=80&fit=crop'; // confident businesswoman
 const _complete     = '${_u}1484480974693-6ca0a78fb36b?w=600&q=80&fit=crop'; // checklist complete
 const _serotoninFood = '${_u}1601316585772-ba1e6dae9cfc?w=600&q=80&fit=crop'; // salmon plate with greens
-const _highStakes    = '${_u}1758518727888-ffa196002e59?w=600&q=80&fit=crop'; // confident businesswoman// ─────────────────────────────────────────────────────────────────────────────
+const _highStakes    = '${_u}1758518727888-ffa196002e59?w=600&q=80&fit=crop'; // confident businesswoman
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PHASE DATA
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -143,7 +202,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Eases cramps & calms the nervous system',
         imageUrl: _yoga,
         accentColor: Color(0xFFE96A8F),
-        duration: '20–30 min',
+        duration: '15–20 min',
+        source: _srcExercise,
         why: 'Yoga activates the parasympathetic nervous system, reducing cortisol that amplifies pain. Hip-opening poses increase blood flow to the pelvis, directly reducing cramp intensity.',
         tip: 'Use a heating pad on your lower abdomen before starting — pre-relaxing the muscles makes every pose more effective.',
         steps: [
@@ -168,7 +228,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Natural endorphin boost, no strain',
         imageUrl: _walking,
         accentColor: Color(0xFF84B2E9),
-        duration: '20–30 min',
+        duration: '25–30 min',
+        source: _srcExercise,
         why: 'Walking releases endorphins that act as natural pain relief, increases circulation to ease bloating, and boosts serotonin to stabilize the mood dip that comes with falling hormones.',
         tip: 'Morning walks in natural light are especially powerful — sunlight regulates melatonin and improves your sleep that night.',
         steps: [
@@ -185,7 +246,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Reduces pain perception directly',
         imageUrl: _breathwork,
         accentColor: Color(0xFFBC6B9C),
-        duration: '10–15 min',
+        duration: '5–10 min',
+        source: _srcStress,
         why: 'Diaphragmatic breathing activates the vagus nerve and parasympathetic nervous system, which directly reduce pain sensitivity. Cramps often soften within minutes of consistent practice.',
         tip: 'Start at the very first sign of a cramp — breathwork works significantly faster when initiated early rather than during peak pain.',
         steps: [
@@ -202,7 +264,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Releases lower back & hip tension',
         imageUrl: _stretching,
         accentColor: Color(0xFFE96A8F),
-        duration: '15–20 min',
+        duration: '8–12 min',
+        source: _srcExercise,
         why: 'The lower back and hips hold significant tension during menstruation due to uterine contractions radiating through the pelvis. Targeted stretching releases this tension and improves blood flow.',
         tip: 'Hold each stretch for a full 60 seconds — the first 30 seconds your muscles resist, the second 30 seconds they actually release.',
         steps: [
@@ -227,7 +290,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Heat therapy for muscle relief',
         imageUrl: _bath,
         accentColor: Color(0xFFBC6B9C),
-        duration: '20–30 min',
+        duration: '25–35 min',
+        source: _srcCycle,
         why: 'Heat relaxes the smooth muscle of the uterus, reducing cramping intensity. Epsom salts provide transdermal magnesium for additional muscle relaxation — the same mechanism as oral magnesium.',
         tip: 'Magnesium from Epsom salts is absorbed through the skin. Add 2 cups per bath for a meaningful dose — it genuinely works.',
         steps: [
@@ -247,6 +311,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _sleep8h,
         accentColor: Color(0xFFE96A8F),
         duration: 'Nightly',
+        source: _srcCycleSyncing,
         why: 'Menstruation requires significant physiological work — shedding the uterine lining demands energy and immune resources. Iron loss also contributes to genuine fatigue. Your sleep requirement is measurably higher on days 1–3.',
         tip: 'Side-sleeping with a pillow between your knees significantly reduces pressure on the uterus and eases overnight cramping without any medication.',
         steps: [
@@ -263,7 +328,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Protect your melatonin this week',
         imageUrl: _noScreen,
         accentColor: Color(0xFFBC6B9C),
-        duration: '60–90 min before bed',
+        duration: '90 min before bed',
+        source: _srcCycleSyncing,
         why: 'Blue light from screens suppresses melatonin production, delaying sleep onset by up to 90 minutes. During menstruation when your body most needs rest, protecting melatonin is especially important.',
         tip: 'Buy a cheap alarm clock so your phone can sleep in another room entirely. Having it physically removed is more effective than any app-based limit.',
         steps: [
@@ -280,7 +346,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Calms cramps and promotes sleep',
         imageUrl: _chamomile,
         accentColor: Color(0xFFE96A8F),
-        duration: '30 min before bed',
+        duration: '20–25 min',
+        source: _srcDietPms,
         why: 'Chamomile contains apigenin, which binds to the same receptors as anti-anxiety medications — promoting relaxation. It also has antispasmodic properties that directly relax smooth muscle, including the uterus.',
         tip: 'Chamomile combined with magnesium (a small handful of pumpkin seeds or almonds alongside the tea) is more effective than either alone for menstrual sleep.',
         steps: [
@@ -300,6 +367,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _ironFoods,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
+        source: _srcPeriodFood,
         why: 'Menstrual blood loss depletes iron, causing fatigue, brain fog, and breathlessness. Vitamin C increases non-heme iron absorption by up to 300% — making the pairing essential, especially for plant-based sources.',
         tip: 'Cast iron cookware leaches a small amount of dietary iron into food — a completely passive way to increase your intake with zero dietary changes.',
         steps: [
@@ -316,7 +384,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Reduces cramps directly — using fish already in the palengke',
         imageUrl: _omega3,
         accentColor: Color(0xFF3BAF7E),
-        duration: 'Daily',
+        duration: 'At least 2 meals this week',
+        source: _srcPeriodFood,
         why: 'Omega-3 fatty acids directly compete with arachidonic acid in producing prostaglandins. More omega-3 means fewer inflammatory prostaglandins — the compounds that cause uterine contractions and cramping.',
         tip: 'Start eating omega-3 rich foods 3–4 days before your expected period — by the time menstruation begins, the anti-inflammatory effect is already building.',
         steps: [
@@ -334,6 +403,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _darkChoc,
         accentColor: Color(0xFFE96A8F),
         duration: '30g daily',
+        source: _srcPeriodFood,
         why: 'Dark chocolate (70%+ cacao) provides iron, magnesium, and zinc — three minerals depleted by menstruation. It also triggers endorphin and serotonin release, providing a genuine mood boost without the inflammatory effects of sugary alternatives.',
         tip: 'The magnesium in dark chocolate works best when you are already well-hydrated. Drink a glass of water before your chocolate ritual.',
         steps: [
@@ -351,6 +421,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _gingerTea,
         accentColor: Color(0xFF3BAF7E),
         duration: '2–3 cups daily',
+        source: _srcPeriodFood,
         why: 'Ginger inhibits prostaglandin synthesis — the same mechanism as ibuprofen. Curcumin in turmeric is a potent anti-inflammatory. Together they provide meaningful pain relief without pharmaceutical side effects.',
         tip: 'Always add a pinch of black pepper — it increases curcumin absorption by 2000%. Without it, most of the turmeric passes through completely unused.',
         steps: [
@@ -370,6 +441,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _lightTask,
         accentColor: Color(0xFFE96A8F),
         duration: 'Full day',
+        source: _srcCycleSyncing,
         why: 'Cognitive load capacity is genuinely reduced during menstruation due to lower estrogen and dopamine. Matching your work to this reduced capacity produces better outcomes and lower stress than forcing peak performance.',
         tip: '"I am investing in my follicular phase" — prep work done during menstruation lets you hit the ground running when energy returns. Reframe rest as deliberate strategy.',
         steps: [
@@ -387,6 +459,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _journal,
         accentColor: Color(0xFFBC6B9C),
         duration: '15–20 min',
+        source: _srcCycleSyncing,
         why: 'The inward, reflective quality of the menstrual phase actually enhances the ability to review and assess honestly. Many women report significant clarity during this phase — thoughts that are clearer than usual. Capturing them in writing is highly productive.',
         tip: 'A monthly reflective journal over 6 cycles becomes an extraordinary personal record — you will see patterns in your thoughts, moods, and life circumstances that are impossible to see in real time.',
         steps: [
@@ -404,6 +477,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _sayNo,
         accentColor: Color(0xFFE96A8F),
         duration: 'Days 1–3',
+        source: _srcCycleSyncing,
         why: 'Social and professional over-commitment during menstruation depletes the limited energy your body has available, prolonging recovery and worsening symptoms. Protecting your energy with appropriate boundaries is not selfishness — it is intelligent resource management.',
         tip: 'Plan your "no" days in advance — it is much easier to decline an invitation a week ahead than to cancel the day of because you feel terrible.',
         steps: [
@@ -431,7 +505,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Energy is rising — use it',
         imageUrl: _jogging,
         accentColor: Color(0xFF84B2E9),
-        duration: '30–40 min',
+        duration: '35–40 min',
+        source: _srcExercise,
         why: 'Rising estrogen increases cardiovascular efficiency and pain tolerance. Your muscles also repair and build faster, making jogging more productive and more enjoyable than at any other phase.',
         tip: 'Track your pace during this phase — follicular phase running times are often your personal fastest. Use them as benchmarks for the whole cycle.',
         steps: [
@@ -448,7 +523,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Muscles synthesize faster now — no gym needed',
         imageUrl: _strength,
         accentColor: Color(0xFF84B2E9),
-        duration: '45–60 min',
+        duration: '35–45 min',
+        source: _srcExercise,
         why: 'Estrogen enhances muscle protein synthesis — your muscles literally grow and repair faster in the follicular phase than at any other point in your cycle. This is scientifically the most productive time to build strength.',
         tip: 'Keep a simple log of your reps and loads and mark which sessions are in your follicular phase. Over 3–4 cycles, you will see your strongest sessions consistently clustering here.',
         steps: [
@@ -465,7 +541,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Maximum adaptation, minimum time',
         imageUrl: _hiit,
         accentColor: Color(0xFF84B2E9),
-        duration: '25–35 min',
+        duration: '20–25 min',
+        source: _srcExercise,
         why: 'HIIT produces its greatest training adaptations when recovery capacity is high — which it genuinely is during the follicular phase. Estrogen also buffers the cortisol spike from intense exercise, making HIIT less stressful now than in the luteal phase.',
         tip: 'Soreness after HIIT is significantly lower in the follicular phase than the same session in the luteal phase. Your body is telling you something important.',
         steps: [
@@ -490,7 +567,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Cardio feels significantly easier',
         imageUrl: _cycling,
         accentColor: Color(0xFF84B2E9),
-        duration: '40–50 min',
+        duration: '35–45 min',
+        source: _srcExercise,
         why: 'Estrogen improves cardiac output and oxygen utilization, making sustained cardio like cycling feel notably easier. Many women experience faster times and less perceived effort on the same routes during this phase.',
         tip: 'If you use a fitness tracker, your resting heart rate will be at its lowest during the follicular phase — a useful indicator of where you are in your cycle.',
         steps: [
@@ -507,7 +585,8 @@ const List<PhaseData> kPhases = [
         shortDesc: 'Full body endurance training',
         imageUrl: _swimming,
         accentColor: Color(0xFF84B2E9),
-        duration: '40–50 min',
+        duration: '30–40 min',
+        source: _srcExercise,
         why: 'Your pain tolerance is high and cardiovascular efficiency is improved during the follicular phase. Swimming allows genuinely challenging intensity with the benefit of water resistance and reduced joint load.',
         tip: 'The follicular phase is the best time to learn new swimming techniques or increase training volume. Your neuromuscular coordination is at its sharpest.',
         steps: [
@@ -527,6 +606,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _sleep8h,
         accentColor: Color(0xFF84B2E9),
         duration: 'Every night',
+        source: _srcCycleSyncing,
         why: 'The follicular phase is when natural sleep quality begins to improve after menstruation. Establishing consistent bedtimes now trains your circadian rhythm for better sleep across the entire cycle.',
         tip: 'Your body actually anticipates your regular wake time and begins raising cortisol 30–60 minutes before. Consistent timing makes mornings noticeably easier within just 2 weeks.',
         steps: [
@@ -544,6 +624,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _morningLight,
         accentColor: Color(0xFF84B2E9),
         duration: '10–20 min on waking',
+        source: _srcCycleSyncing,
         why: 'Morning natural light enters your eyes and directly suppresses melatonin while setting your circadian clock. This improves sleep onset at night and makes mornings more energizing. Even cloudy outdoor light is 10x brighter than indoor lighting.',
         tip: 'Consistent morning light exposure combined with consistent wake times is more effective than any sleep supplement for improving sleep quality. It is free and takes 10 minutes.',
         steps: [
@@ -563,6 +644,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _protein,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
+        source: _srcCycleSyncing,
         why: 'Rising estrogen activates muscle protein synthesis — but only when adequate dietary protein is available. Without enough protein, the hormonal signal to build muscle cannot be fully utilized. This is one of the most common training errors.',
         tip: 'Distributing protein across 4–5 meals produces 25% more muscle protein synthesis than the same daily total consumed mostly at dinner. Timing matters as much as total intake.',
         steps: [
@@ -580,6 +662,7 @@ const List<PhaseData> kPhases = [
         imageUrl: _phaseEating,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Daily',
+        source: _srcCycleSyncing,
         why: 'Estrogen is metabolized by the gut microbiome. A diverse, healthy microbiome ensures estrogen is cleared efficiently — preventing both low estrogen and estrogen dominance. Fermented foods feed beneficial gut bacteria directly.',
         tip: 'You don\'t need imported kimchi or kombucha for this — atchara, plain yogurt, and Yakult are sold at any sari-sari store and give the same live-culture benefit.',
         steps: [
@@ -594,8 +677,10 @@ const List<PhaseData> kPhases = [
       LifestyleItem(
         name: 'Complex Carbohydrates',
         shortDesc: 'Sustained energy for peak training',
-imageUrl: _serotoninFood,        accentColor: Color(0xFF3BAF7E),
+        imageUrl: _serotoninFood,
+        accentColor: Color(0xFF3BAF7E),
         duration: 'Around workouts',
+        source: _srcPmsFreeDiet,
         why: 'Complex carbohydrates provide sustained glucose for higher-intensity exercise that is optimal in the follicular phase, without the blood sugar spikes of refined carbohydrates. They also support serotonin production.',
         tip: 'Oats are one of the most researched foods for sustained energy. Overnight oats prepared the night before make the perfect pre-workout breakfast requiring zero morning effort.',
         steps: [
@@ -612,8 +697,10 @@ imageUrl: _serotoninFood,        accentColor: Color(0xFF3BAF7E),
       LifestyleItem(
         name: 'Deep Work Sessions',
         shortDesc: 'Your cognitive peak — protect it',
-imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
+        imageUrl: _highStakes,
+        accentColor: Color(0xFF84B2E9),
         duration: '2–4 hours daily',
+        source: _srcCycleSyncing,
         why: 'Working memory, processing speed, verbal fluency, and problem-solving ability are all measurably enhanced by estrogen in the follicular phase. Research confirms women perform better on cognitive tests during this phase.',
         tip: 'Schedule all meetings in the afternoon of follicular phase days. Keep mornings completely clear for focused work. This single change transforms weekly output.',
         steps: [
@@ -631,6 +718,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _organize,
         accentColor: Color(0xFF84B2E9),
         duration: 'Full week',
+        source: _srcCycleSyncing,
         why: 'Rising dopamine and estrogen in the follicular phase creates a neurological state of openness, optimism, and motivation that is genuinely better for starting new things than other phases. Novelty-seeking behavior peaks now.',
         tip: 'The follicular phase is the best time to overcome procrastination on things you have been avoiding. The lower anxiety and higher motivation mean the psychological cost of starting is genuinely lower.',
         steps: [
@@ -648,6 +736,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _network,
         accentColor: Color(0xFF84B2E9),
         duration: 'Full week',
+        source: _srcCycleSyncing,
         why: 'Estrogen increases production of oxytocin (the connection hormone) and serotonin, making social interactions both easier and more rewarding in the follicular phase. This is your natural social peak — lean into it professionally and personally.',
         tip: 'First impressions made in the follicular phase tend to be more positive — your natural warmth and openness are at their peak. Try to make important new professional introductions during this window.',
         steps: [
@@ -675,7 +764,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Your absolute peak strength window — no barbell needed',
         imageUrl: _heavylift,
         accentColor: Color(0xFF6BB89E),
-        duration: '60–75 min',
+        duration: '45–55 min',
+        source: _srcExercise,
         why: 'Estrogen is at its absolute peak around ovulation, maximizing muscle strength, power output, and pain tolerance simultaneously. This is the single best time in your cycle to push your hardest effort yet.',
         tip: 'Keep a simple log of your reps and loads — your best numbers will almost always cluster in the ovulation and late follicular phases. This pattern repeats every single cycle.',
         steps: [
@@ -692,7 +782,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Strength, flow, and peak confidence',
         imageUrl: _poweryoga,
         accentColor: Color(0xFF6BB89E),
-        duration: '60–75 min',
+        duration: '40–50 min',
+        source: _srcExercise,
         why: 'Power yoga engages strength, coordination, balance, and flexibility simultaneously. Peak estrogen makes all these capacities available at once — making ovulation your best phase for challenging yoga.',
         tip: 'Flexibility measurably increases around ovulation due to estrogen\'s effect on joint laxity. You can go deeper than usual — but stay mindful. Laxity also means higher injury risk if you force.',
         steps: [
@@ -717,7 +808,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Maximum effort — your body can take it',
         imageUrl: _hiit,
         accentColor: Color(0xFF6BB89E),
-        duration: '30–40 min',
+        duration: '20–25 min',
+        source: _srcExercise,
         why: 'Peak estrogen at ovulation raises your pain threshold, increases adrenaline sensitivity, and maximizes your anaerobic capacity. Ovulation-phase HIIT produces the strongest training adaptations of any phase.',
         tip: 'Ovulation-phase HIIT produces peak EPOC — you continue burning calories at an elevated rate for 24–36 hours after the session. The investment compounds significantly.',
         steps: [
@@ -745,6 +837,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _sleep8h,
         accentColor: Color(0xFF6BB89E),
         duration: 'Nightly',
+        source: _srcCycleSyncing,
         why: 'High energy and elevated mood during ovulation can lead to later bedtimes — which undermines recovery from peak training and can disrupt the hormonal transition into the luteal phase that follows.',
         tip: 'Sleep debt accumulated during late ovulation-phase nights often appears as worsened PMS 7–10 days later. Protecting sleep now is direct prevention of future symptoms.',
         steps: [
@@ -761,7 +854,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Accelerates recovery from peak training',
         imageUrl: _stretching,
         accentColor: Color(0xFF6BB89E),
-        duration: '15 min',
+        duration: '12–15 min',
+        source: _srcExercise,
         why: 'The high-intensity exercise of ovulation creates greater muscle fiber stress than lighter phases. A consistent evening stretching routine accelerates recovery by increasing blood flow to stressed muscles and reducing delayed onset muscle soreness.',
         tip: 'Foam rolling before stretching during heavy training weeks increases the effectiveness of stretching by up to 35%. Spend 5 minutes on the foam roller before your evening stretch.',
         steps: [
@@ -789,6 +883,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _protein,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
+        source: _srcCycleSyncing,
         why: 'The muscle stress from peak ovulation training requires abundant protein for repair and adaptation. Protein synthesis is maximally efficient when training intensity is highest. Missing protein intake during your peak phase is the most common error that limits progress.',
         tip: 'Spreading protein across meals (not just at dinner) produces 25% more muscle protein synthesis. Eating a carbohydrate alongside tryptophan-rich protein also amplifies the mood benefit.',
         steps: [
@@ -806,6 +901,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _antInflam,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
+        source: _srcInflammation,
         why: 'Peak training during ovulation creates significant exercise-induced inflammation. While some inflammation is necessary for adaptation, dietary anti-inflammatories help modulate this response without the side effects of NSAIDs.',
         tip: 'Curcumin (active compound in turmeric) has anti-inflammatory potency comparable to some NSAIDs. Always take with black pepper and fat — without them, most of it passes through unused.',
         steps: [
@@ -823,6 +919,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _hydration,
         accentColor: Color(0xFF3BAF7E),
         duration: 'During & after training',
+        source: _srcExercise,
         why: 'Peak training during ovulation creates higher sweat rates. Replacing only water without electrolytes creates hyponatremia (low sodium) — which worsens performance and recovery in ways that plain water cannot fix.',
         tip: 'Pink Himalayan sea salt contains a wider range of trace minerals than standard table salt. Using it in homemade electrolyte drinks provides broader mineral replacement.',
         steps: [
@@ -842,6 +939,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _present,
         accentColor: Color(0xFF6BB89E),
         duration: 'This week',
+        source: _srcCycleSyncing,
         why: 'The brief testosterone rise at ovulation, combined with peak estrogen, creates a unique combination of confidence, assertiveness, and warmth. Verbal fluency, persuasiveness, and confidence are measurably at their peak.',
         tip: 'Research shows women in leadership roles are rated most positively by peers when presenting during their follicular and ovulation phases. This is measurable and reproducible.',
         steps: [
@@ -859,6 +957,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _deepWork,
         accentColor: Color(0xFF6BB89E),
         duration: 'As scheduled',
+        source: _srcCycleSyncing,
         why: 'Stress performance — executing well under pressure — is enhanced by the testosterone-estrogen combination of ovulation. The anxiety that degrades performance under pressure is lowest now. Save your highest-stakes execution for this window.',
         tip: 'The difference between anxiety and excitement is the story you tell about physiological arousal. During ovulation, reframing "I\'m nervous" as "I\'m activated and ready" is particularly effective.',
         steps: [
@@ -886,7 +985,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Calms PMS from the inside out',
         imageUrl: _restoreyoga,
         accentColor: Color(0xFFBC6B9C),
-        duration: '30–45 min',
+        duration: '30–35 min',
+        source: _srcLuteal,
         why: 'Progesterone-dominant luteal phase raises cortisol sensitivity and amplifies stress responses. Yin yoga activates the parasympathetic nervous system and measurably reduces cortisol, directly counteracting the hormonal stress of this phase.',
         tip: 'Yin yoga\'s long-held, passive poses match the natural "letting go" quality of the end-of-cycle phase. Lean into this rather than fighting the slower energy.',
         steps: [
@@ -912,6 +1012,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _walking,
         accentColor: Color(0xFFBC6B9C),
         duration: '20–40 min daily',
+        source: _srcExercise,
         why: 'Walking raises serotonin and endorphins (reducing PMS), improves blood flow (reducing bloating), and keeps cortisol appropriately low — without the cortisol spike that intense exercise produces and the luteal phase amplifies.',
         tip: 'Walking in nature specifically provides additional cortisol reduction. A tree-lined street is measurably more effective than an urban pavement for the same duration.',
         steps: [
@@ -928,7 +1029,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Core strength without draining recovery',
         imageUrl: _pilates,
         accentColor: Color(0xFFBC6B9C),
-        duration: '30–40 min',
+        duration: '20–25 min',
+        source: _srcExercise,
         why: 'Pilates builds core and pelvic floor strength through controlled, low-impact movements. Stronger pelvic floor muscles over time correlate with reduced menstrual pain in the following cycle — making luteal phase Pilates a direct investment in your next menstruation.',
         tip: 'Classical mat Pilates is free, accessible, and perfectly suited to the luteal phase. The precision required keeps you mentally present without demanding high output.',
         steps: [
@@ -954,6 +1056,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _cycling,
         accentColor: Color(0xFFBC6B9C),
         duration: '30–45 min',
+        source: _srcExercise,
         why: 'Easy cycling provides cardiovascular benefit without the cortisol spike of high-intensity work. The rhythmic pedaling is meditative and reduces anxiety — a key benefit during the late luteal phase when emotional regulation is naturally lower.',
         tip: 'Outdoor cycling in natural light combines cortisol reduction from nature exposure with the serotonin boost of gentle exercise — especially useful for PMS mood management.',
         steps: [
@@ -973,6 +1076,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _coolRoom,
         accentColor: Color(0xFFBC6B9C),
         duration: 'Every night',
+        source: _srcLuteal,
         why: 'Progesterone raises basal body temperature by 0.3–0.5°C in the luteal phase. Your sleep environment needs to be cooler than usual to compensate for this internal temperature rise so your core temperature can drop enough for deep sleep.',
         tip: 'Magnesium glycinate is the most evidence-based non-pharmaceutical sleep aid for PMS. The glycinate form crosses the blood-brain barrier and has direct GABA-promoting effects. Effects build over consecutive nights.',
         steps: [
@@ -990,6 +1094,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _journalBed,
         accentColor: Color(0xFFBC6B9C),
         duration: '10–15 min',
+        source: _srcWhatIsPms,
         why: 'Anxiety and rumination are at their peak in the late luteal phase due to progesterone withdrawal. Writing worries before bed externalizes them from working memory, reducing the mental activity that delays sleep onset.',
         tip: 'Writing "this is out of my control — I accept this" on paper is more effective at stopping rumination than telling yourself the same thing mentally. The externalization is what matters.',
         steps: [
@@ -1006,7 +1111,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Natural sleep support for PMS week',
         imageUrl: _chamomile,
         accentColor: Color(0xFFBC6B9C),
-        duration: '30 min before bed',
+        duration: '30–45 min before bed',
+        source: _srcWhatIsPms,
         why: 'Valerian root acts on GABA receptors similarly to benzodiazepines but without dependence potential. Research shows valerian reduces time to fall asleep and improves sleep quality specifically in women with PMS. Effects build over 3–5 consecutive nights.',
         tip: 'Valerian has an earthy, unusual flavor. Most women prefer it blended with chamomile — most commercial "sleep blend" teas contain both. The combination is more effective than either alone.',
         steps: [
@@ -1026,6 +1132,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _magnesiumFoods,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
+        source: _srcPmsFreeDiet,
         why: 'Magnesium is depleted by progesterone in the luteal phase. Low magnesium directly contributes to PMS symptoms including anxiety, irritability, insomnia, bloating, and cramps. Consistently increasing intake significantly reduces PMS severity.',
         tip: 'You don\'t need pricey seeds or supplements for this — monggo, malunggay, and kangkong are cheap, everyday ingredients that deliver the same magnesium.',
         steps: [
@@ -1043,6 +1150,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _complex,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Every meal',
+        source: _srcDietPms,
         why: 'Serotonin drops as estrogen falls in the late luteal phase — this is the direct cause of PMS mood symptoms. Tryptophan from food, combined with complex carbohydrates, can replenish serotonin production naturally.',
         tip: 'Your carbohydrate cravings in PMS week are literally your brain requesting the serotonin precursor transport system. Satisfy them with complex carbs, not refined sugar.',
         steps: [
@@ -1060,6 +1168,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _calcium,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Daily',
+        source: _srcPmsFreeDiet,
         why: 'Calcium has some of the strongest evidence of any single nutrient for PMS relief. Multiple clinical trials show that 1,000–1,200mg daily significantly reduces PMS mood symptoms, bloating, cramps, and cravings — with effects comparable to some pharmaceutical interventions.',
         tip: 'Vitamin D is required for calcium absorption. Aim for 10–20 minutes of skin exposed to sunlight daily to support vitamin D levels, which then enables the calcium you eat to be properly absorbed.',
         steps: [
@@ -1077,6 +1186,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _hydration,
         accentColor: Color(0xFF3BAF7E),
         duration: 'Days 20–28',
+        source: _srcDietPms,
         why: 'Progesterone causes the body to retain sodium, which pulls water into tissues — creating the bloated, heavy feeling of the late luteal phase. Reducing dietary sodium during this window directly reduces water retention and provides meaningful physical relief.',
         tip: 'If you are craving salt specifically, it may indicate low electrolytes. Try adding potassium-rich foods (banana, avocado, spinach) rather than more sodium.',
         steps: [
@@ -1096,6 +1206,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _complete,
         accentColor: Color(0xFFBC6B9C),
         duration: 'Full week',
+        source: _srcCycleSyncing,
         why: 'The luteal phase brain has naturally stronger attention to detail and a preference for completion over initiation. These qualities make finishing ongoing projects significantly more efficient and satisfying than starting new ones.',
         tip: 'The satisfaction of completing things during the luteal phase is neurologically real — it activates the dopamine system that progesterone withdrawal is suppressing. Each completion is literally therapeutic.',
         steps: [
@@ -1112,7 +1223,8 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         shortDesc: 'Your eye for error is at its sharpest',
         imageUrl: _organize,
         accentColor: Color(0xFFBC6B9C),
-        duration: '2–3 hour blocks',
+        duration: '2-hour blocks',
+        source: _srcCycleSyncing,
         why: 'Research shows attention to detail and error-detection ability are measurably better during the luteal phase compared to the follicular phase. The same document reviewed in both phases will yield different errors caught. Schedule review tasks here deliberately.',
         tip: 'Financial audits, legal document reviews, and quality assurance checks all benefit from being scheduled in the luteal phase. The natural skepticism and detail-focus of this phase is a professional asset — if you know to use it.',
         steps: [
@@ -1130,6 +1242,7 @@ imageUrl: _highStakes,        accentColor: Color(0xFF84B2E9),
         imageUrl: _selfCare,
         accentColor: Color(0xFFBC6B9C),
         duration: 'Throughout the week',
+        source: _srcCycleSyncing,
         why: 'Treating self-care as productive investment during the luteal phase — rather than a guilty break from productivity — changes your relationship with rest. Research consistently shows adequate rest improves performance in subsequent high-energy phases.',
         tip: 'The women who are most sustainably productive across their careers are the ones who have learned to manage their energy across their cycle — not the ones who push hardest in every phase.',
         steps: [
@@ -1234,11 +1347,11 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       bottomNavigationBar: const AppBottomNav(currentIndex: 5),
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -1258,13 +1371,13 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
 
   Widget _buildTopBar() => Padding(
     padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-    child: _Glass.card(
+    child: Glass.card(
       radius: 18,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(children: [
         Expanded(
           child: Text('Lifestyle & Productivity',
-              style: _Glass.heading(size: 16, weight: FontWeight.w600)),
+              style: Glass.heading(size: 16, weight: FontWeight.w600)),
         ),
         GestureDetector(
           onTap: _startCoachTour,
@@ -1272,11 +1385,11 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: _Glass.blue.withOpacity(0.2),
+              color: Glass.blue.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
+            child: Icon(Icons.question_mark_rounded, size: 15, color: Glass.blueDeep),
           ),
         ),
       ]),
@@ -1287,7 +1400,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
 
   Widget _buildPhaseSelector() => Padding(
     padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-    child: _Glass.card(
+    child: Glass.card(
       radius: 18,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
@@ -1319,10 +1432,10 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                           style: const TextStyle(fontSize: 14)),
                       const SizedBox(width: 5),
                       Text(p.name,
-                          style: _Glass.body(
+                          style: Glass.body(
                             size: 12,
                             weight: FontWeight.w600,
-                            color: isOn ? Colors.white : _Glass.textMuted,
+                            color: isOn ? Colors.white : Glass.textMuted,
                           )),
                     ]),
                   ),
@@ -1332,7 +1445,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
           ),
           const SizedBox(height: 6),
           Text(_phase.subtitle,
-              style: _Glass.body(
+              style: Glass.body(
                   size: 11, weight: FontWeight.w600, color: _phase.color)),
         ],
       ),
@@ -1343,7 +1456,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
 
   Widget _buildCategoryTabs() => Padding(
     padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-    child: _Glass.card(
+    child: Glass.card(
       radius: 18,
       padding: EdgeInsets.zero,
       child: Row(children: List.generate(_categoryNames.length, (i) {
@@ -1365,13 +1478,13 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                 children: [
                   Icon(_categoryIcons[i],
                       size: 18,
-                      color: isOn ? _phase.color : _Glass.textHint),
+                      color: isOn ? _phase.color : Glass.textHint),
                   const SizedBox(height: 3),
                   Text(_categoryNames[i],
-                      style: _Glass.body(
+                      style: Glass.body(
                         size: 10,
                         weight: isOn ? FontWeight.w600 : FontWeight.normal,
-                        color: isOn ? _phase.color : _Glass.textMuted,
+                        color: isOn ? _phase.color : Glass.textMuted,
                       )),
                 ],
               ),
@@ -1389,7 +1502,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
     if (items.isEmpty) {
       return Center(
         child: Text('More content coming soon',
-            style: _Glass.body(size: 14, color: _Glass.textHint)),
+            style: Glass.body(size: 14, color: Glass.textHint)),
       );
     }
     return ListView.builder(
@@ -1409,7 +1522,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
           children: [
             Icon(Icons.image_outlined, size: 36, color: item.accentColor.withOpacity(0.4)),
             const SizedBox(height: 6),
-            Text(item.name, style: _Glass.body(size: 13, color: item.accentColor)),
+            Text(item.name, style: Glass.body(size: 13, color: item.accentColor)),
           ],
         ),
       );
@@ -1452,7 +1565,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
       onTap: () => _openDetail(item),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        child: _Glass.card(
+        child: Glass.card(
           radius: 18,
           padding: EdgeInsets.zero,
           child: Column(
@@ -1488,9 +1601,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                       top: 10, right: 10,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                          child: Container(
+                        child: GlassBlur(sigma: 8, child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -1502,7 +1613,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                                   size: 11, color: Colors.white),
                               const SizedBox(width: 4),
                               Text(item.duration,
-                                  style: _Glass.body(
+                                  style: Glass.body(
                                       size: 10,
                                       weight: FontWeight.w500,
                                       color: Colors.white)),
@@ -1515,7 +1626,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                     Positioned(
                       bottom: 10, left: 12,
                       child: Text(item.name,
-                          style: _Glass.heading(
+                          style: Glass.heading(
                               size: 15, weight: FontWeight.w700, color: Colors.white)),
                     ),
                   ],
@@ -1529,7 +1640,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.shortDesc,
-                        style: _Glass.body(size: 12, color: _Glass.textMuted)),
+                        style: Glass.body(size: 12, color: Glass.textMuted)),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -1541,12 +1652,12 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text('${item.steps.length} steps',
-                              style: _Glass.body(
+                              style: Glass.body(
                                   size: 10, weight: FontWeight.w600, color: c)),
                         ),
                         const Spacer(),
                         Text('View tutorial',
-                            style: _Glass.body(
+                            style: Glass.body(
                                 size: 11, weight: FontWeight.w600, color: c)),
                         const SizedBox(width: 3),
                         Icon(Icons.arrow_forward_rounded, size: 13, color: c),
@@ -1580,6 +1691,18 @@ class _DetailScreen extends StatefulWidget {
 class _DetailScreenState extends State<_DetailScreen> {
   int _currentStep = 0;
 
+  Future<void> _openSource(LifestyleSource source) async {
+    final ok = await launchUrl(
+      Uri.parse(source.url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the reference link.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = widget.phaseColor;
@@ -1587,17 +1710,17 @@ class _DetailScreenState extends State<_DetailScreen> {
     final total = item.steps.length;
 
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
                 // ── Top bar ──────────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                  child: _Glass.card(
+                  child: Glass.card(
                     radius: 18,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     child: Row(children: [
@@ -1609,13 +1732,13 @@ class _DetailScreenState extends State<_DetailScreen> {
                               color: Colors.white.withOpacity(0.5),
                               shape: BoxShape.circle),
                           child: Icon(Icons.chevron_left,
-                              color: _Glass.textDark, size: 20),
+                              color: Glass.textDark, size: 20),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(item.name,
-                            style: _Glass.heading(size: 16, weight: FontWeight.w600),
+                            style: Glass.heading(size: 16, weight: FontWeight.w600),
                             overflow: TextOverflow.ellipsis),
                       ),
                       Container(
@@ -1624,7 +1747,7 @@ class _DetailScreenState extends State<_DetailScreen> {
                             color: c.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(20)),
                         child: Text(item.duration,
-                            style: _Glass.body(
+                            style: Glass.body(
                                 size: 11, weight: FontWeight.w500, color: c)),
                       ),
                     ]),
@@ -1659,7 +1782,7 @@ class _DetailScreenState extends State<_DetailScreen> {
                           // ── Hero image ────────────────────────────────────────
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
-                            child: _Glass.card(
+                            child: Glass.card(
                               radius: 20,
                               padding: EdgeInsets.zero,
                               child: SizedBox(
@@ -1733,13 +1856,13 @@ class _DetailScreenState extends State<_DetailScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text('Step ${_currentStep + 1} of $total',
-                                              style: _Glass.body(
+                                              style: Glass.body(
                                                   size: 11,
                                                   weight: FontWeight.w500,
                                                   color: Colors.white.withOpacity(0.8))),
                                           const SizedBox(height: 3),
                                           Text(item.steps[_currentStep],
-                                              style: _Glass.heading(
+                                              style: Glass.heading(
                                                   size: 15,
                                                   weight: FontWeight.w700,
                                                   color: Colors.white),
@@ -1759,7 +1882,7 @@ class _DetailScreenState extends State<_DetailScreen> {
                           // ── Dots navigation ───────────────────────────────────
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
-                            child: _Glass.card(
+                            child: Glass.card(
                               radius: 18,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
@@ -1780,8 +1903,8 @@ class _DetailScreenState extends State<_DetailScreen> {
                                     child: Icon(Icons.chevron_left,
                                         size: 20,
                                         color: _currentStep > 0
-                                            ? _Glass.textDark
-                                            : _Glass.textHint),
+                                            ? Glass.textDark
+                                            : Glass.textHint),
                                   ),
                                 ),
 
@@ -1796,7 +1919,7 @@ class _DetailScreenState extends State<_DetailScreen> {
                                       decoration: BoxDecoration(
                                         color: i == _currentStep
                                             ? c
-                                            : _Glass.textHint.withOpacity(0.4),
+                                            : Glass.textHint.withOpacity(0.4),
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                     )),
@@ -1842,7 +1965,7 @@ class _DetailScreenState extends State<_DetailScreen> {
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 180),
                                     margin: const EdgeInsets.only(bottom: 8),
-                                    child: _Glass.card(
+                                    child: Glass.card(
                                       radius: 14,
                                       padding: const EdgeInsets.all(13),
                                       opacity: isActive ? 0.7 : 0.5,
@@ -1865,28 +1988,28 @@ class _DetailScreenState extends State<_DetailScreen> {
                                                 ? const Icon(Icons.check_rounded,
                                                 size: 14, color: Colors.white)
                                                 : Text('${i + 1}',
-                                                style: _Glass.body(
+                                                style: Glass.body(
                                                   size: 11,
                                                   weight: FontWeight.w700,
                                                   color: isActive
                                                       ? Colors.white
-                                                      : _Glass.textMuted,
+                                                      : Glass.textMuted,
                                                 )),
                                           ),
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: Text(item.steps[i],
-                                                style: _Glass.body(
+                                                style: Glass.body(
                                                   size: 13,
                                                   color: isDone
-                                                      ? _Glass.textHint
-                                                      : _Glass.textDark,
+                                                      ? Glass.textHint
+                                                      : Glass.textDark,
                                                 ).copyWith(
                                                   height: 1.55,
                                                   decoration: isDone
                                                       ? TextDecoration.lineThrough
                                                       : null,
-                                                  decorationColor: _Glass.textHint,
+                                                  decorationColor: Glass.textHint,
                                                 )),
                                           ),
                                         ],
@@ -1919,6 +2042,12 @@ class _DetailScreenState extends State<_DetailScreen> {
                             isHighlight: true,
                           ),
 
+                          // ── Reference ────────────────────────────────────────
+                          if (item.source != null) ...[
+                            const SizedBox(height: 8),
+                            _sourceCard(item.source!, c),
+                          ],
+
                           const SizedBox(height: 24),
                         ],
                       ),
@@ -1933,6 +2062,49 @@ class _DetailScreenState extends State<_DetailScreen> {
     );
   }
 
+  Widget _sourceCard(LifestyleSource source, Color color) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: GestureDetector(
+          onTap: () => _openSource(source),
+          child: Glass.card(
+            radius: 16,
+            padding: const EdgeInsets.all(14),
+            opacity: 0.5,
+            child: Row(children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.menu_book_outlined, size: 16, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('REFERENCE',
+                        style: Glass.body(
+                                size: 10, weight: FontWeight.w700, color: color)
+                            .copyWith(letterSpacing: .5)),
+                    const SizedBox(height: 3),
+                    Text(source.name,
+                        style: Glass.body(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: Glass.textDark)),
+                  ],
+                ),
+              ),
+              Icon(Icons.open_in_new_rounded, size: 16, color: color),
+            ]),
+          ),
+        ),
+      );
+
   Widget _infoCard({
     required IconData icon,
     required Color color,
@@ -1942,7 +2114,7 @@ class _DetailScreenState extends State<_DetailScreen> {
   }) =>
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: _Glass.card(
+        child: Glass.card(
           radius: 16,
           padding: const EdgeInsets.all(14),
           opacity: isHighlight ? 0.65 : 0.5,
@@ -1953,152 +2125,16 @@ class _DetailScreenState extends State<_DetailScreen> {
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(label.toUpperCase(),
-                    style: _Glass.body(
+                    style: Glass.body(
                         size: 10, weight: FontWeight.w700, color: color)
                         .copyWith(letterSpacing: .5)),
               ]),
               const SizedBox(height: 8),
               Text(body,
-                  style: _Glass.body(size: 13, color: _Glass.textMuted)
+                  style: Glass.body(size: 13, color: Glass.textMuted)
                       .copyWith(height: 1.65)),
             ],
           ),
         ),
       );
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      ),
-    );
-  }
 }

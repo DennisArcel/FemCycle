@@ -304,4 +304,49 @@ class NotificationService {
     await _localNotifications.cancel(_dayBeforeId(checkupId));
     await _localNotifications.cancel(_dayOfId(checkupId));
   }
+
+  // ── TEMP: debug helper — delete once the reminder issue is solved ─────
+  /// Schedules a single test notification 1 minute from now, using the
+  /// exact same channel / schedule mode / timezone setup as the real
+  /// checkup reminders. Lock the phone and wait 2-3 minutes to see if it
+  /// shows up. Also prints what the OS has queued so we can tell
+  /// "never scheduled" apart from "scheduled but delayed/blocked".
+  static Future<String> debugTestNotification() async {
+    try {
+      final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+      print('🧪 test scheduled for $when (tz.local=${tz.local.name})');
+
+      await _localNotifications.zonedSchedule(
+        9999,
+        'Test notification',
+        'If you see this, scheduling works.',
+        when,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'femcycle_channel',
+            'FemCycle Notifications',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      print('🧪 zonedSchedule for test completed without throwing');
+
+      final pending = await _localNotifications.pendingNotificationRequests();
+      print('🧪 pendingNotificationRequests count=${pending.length}');
+      for (final p in pending) {
+        print('🧪   pending id=${p.id} title=${p.title} body=${p.body}');
+      }
+
+      return 'tz=${tz.local.name}, pending ids=${pending.map((p) => p.id).toList()}';
+    } catch (e, st) {
+      print('🧪 debugTestNotification THREW: $e');
+      print('🧪 stack: $st');
+      return 'ERROR: $e';
+    }
+  }
 }

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -8,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme_provider.dart';
 import '../widgets/coach_mark_overlay.dart';
 import '../services/tutorial_storage_service.dart';
+import '../widgets/glass.dart';
 
 class TypicalFlowScreen extends StatefulWidget {
   const TypicalFlowScreen({super.key});
@@ -99,19 +99,19 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
 
   Color _flowColor(String? flow) {
     switch (flow) {
-      case 'Light': return _Glass.blueDeep;
-      case 'Moderate': return _Glass.pinkDeep;
+      case 'Light': return Glass.blueDeep;
+      case 'Moderate': return Glass.pinkDeep;
       case 'Heavy': return const Color(0xFFA865C0);
       case 'Super Heavy': return const Color(0xFF7A2E4C);
-      default: return _Glass.textHint;
+      default: return Glass.textHint;
     }
   }
 
   Color _flowBg(String? flow) {
     switch (flow) {
-      case 'Light': return _Glass.blue.withOpacity(0.25);
-      case 'Moderate': return _Glass.pink.withOpacity(0.25);
-      case 'Heavy': return _Glass.purple.withOpacity(0.25);
+      case 'Light': return Glass.blue.withOpacity(0.25);
+      case 'Moderate': return Glass.pink.withOpacity(0.25);
+      case 'Heavy': return Glass.purple.withOpacity(0.25);
       case 'Super Heavy': return const Color(0xFFE0679A).withOpacity(0.2);
       default: return Colors.white.withOpacity(0.4);
     }
@@ -152,10 +152,10 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _Glass.pageBackground,
+      backgroundColor: Glass.pageBackground,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: AmbientBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -163,14 +163,14 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                 Expanded(
                   child: _isLoading
                       ? Center(
-                          child: CircularProgressIndicator(color: _Glass.blueDeep),
+                          child: CircularProgressIndicator(color: Glass.blueDeep),
                         )
                       : _errorMessage != null
                           ? _buildErrorState()
                           : _periods.isEmpty
                               ? _buildEmptyState()
                               : RefreshIndicator(
-                                  color: _Glass.blueDeep,
+                                  color: Glass.blueDeep,
                                   onRefresh: _loadData,
                                   child: SingleChildScrollView(
                                     physics: const AlwaysScrollableScrollPhysics(),
@@ -181,7 +181,7 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                                         KeyedSubtree(key: _summaryGridKey, child: _buildSummaryGrid()),
                                         const SizedBox(height: 16),
                                         Text('Cycle history',
-                                            style: _Glass.body(
+                                            style: Glass.body(
                                                 size: 13, weight: FontWeight.w700)),
                                         const SizedBox(height: 10),
                                         KeyedSubtree(
@@ -206,7 +206,7 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
   Widget _buildTopBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 18,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -217,11 +217,11 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                 width: 32, height: 32,
                 decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.5), shape: BoxShape.circle),
-                child: Icon(Icons.chevron_left, color: _Glass.textDark, size: 20),
+                child: Icon(Icons.chevron_left, color: Glass.textDark, size: 20),
               ),
             ),
             const SizedBox(width: 10),
-            Text('Typical Flow', style: _Glass.heading(size: 18, weight: FontWeight.w600)),
+            Text('Typical Flow', style: Glass.heading(size: 18, weight: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
               onTap: _startCoachTour,
@@ -229,11 +229,11 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: _Glass.blue.withOpacity(0.2),
+                  color: Glass.blue.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Icon(Icons.question_mark_rounded, size: 15, color: _Glass.blueDeep),
+                child: Icon(Icons.question_mark_rounded, size: 15, color: Glass.blueDeep),
               ),
             ),
           ],
@@ -246,7 +246,7 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: _Glass.card(
+        child: Glass.card(
           padding: const EdgeInsets.all(28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -254,12 +254,12 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
               const Text('🩸', style: TextStyle(fontSize: 44)),
               const SizedBox(height: 14),
               Text('No cycles logged yet',
-                  style: _Glass.heading(size: 16, weight: FontWeight.w700)),
+                  style: Glass.heading(size: 16, weight: FontWeight.w700)),
               const SizedBox(height: 6),
               Text(
                 'Log your period from the home screen to see your history here.',
                 textAlign: TextAlign.center,
-                style: _Glass.body(size: 12, color: _Glass.textMuted),
+                style: Glass.body(size: 12, color: Glass.textMuted),
               ),
             ],
           ),
@@ -272,23 +272,23 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: _Glass.card(
+        child: Glass.card(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_outlined, size: 44, color: _Glass.textHint),
+              Icon(Icons.cloud_off_outlined, size: 44, color: Glass.textHint),
               const SizedBox(height: 14),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: _Glass.body(size: 13, color: _Glass.textMuted),
+                style: Glass.body(size: 13, color: Glass.textMuted),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadData,
-                style: _Glass.primaryButtonStyle(),
-                child: Text('Try Again', style: _Glass.body(color: Colors.white)),
+                style: Glass.primaryButtonStyle(),
+                child: Text('Try Again', style: Glass.body(color: Colors.white)),
               ),
             ],
           ),
@@ -312,18 +312,18 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
       children: [
         _summaryCard(
             _avgCycleLength != null ? '${_avgCycleLength!.round()}' : 'N/A',
-            'Avg cycle length', _Glass.blueDeep),
+            'Avg cycle length', Glass.blueDeep),
         _summaryCard(
             _avgPeriodLength != null ? '${_avgPeriodLength!.round()}' : 'N/A',
-            'Avg period days', _Glass.pinkDeep),
+            'Avg period days', Glass.pinkDeep),
         _summaryCard('$_cyclesLogged', 'Cycles logged', const Color(0xFFA865C0)),
-        _summaryCard(lastPeriodLabel, 'Last period', _Glass.blueDeep),
+        _summaryCard(lastPeriodLabel, 'Last period', Glass.blueDeep),
       ],
     );
   }
 
   Widget _summaryCard(String value, String label, Color color) {
-    return _Glass.card(
+    return Glass.card(
       radius: 14,
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -331,9 +331,9 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(value,
-              style: _Glass.heading(size: 24, weight: FontWeight.w700, color: color)),
+              style: Glass.heading(size: 24, weight: FontWeight.w700, color: color)),
           const SizedBox(height: 4),
-          Text(label, style: _Glass.body(size: 10, color: _Glass.textMuted)),
+          Text(label, style: Glass.body(size: 10, color: Glass.textMuted)),
         ],
       ),
     );
@@ -348,12 +348,12 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: _Glass.card(
+      child: Glass.card(
         radius: 14,
         padding: EdgeInsets.zero,
         child: Container(
           decoration: BoxDecoration(
-              border: Border(left: BorderSide(color: _Glass.pinkDeep, width: 3))),
+              border: Border(left: BorderSide(color: Glass.pinkDeep, width: 3))),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -361,13 +361,13 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                 Column(
                   children: [
                     Text('${start.day}',
-                        style: _Glass.heading(
+                        style: Glass.heading(
                           size: 20,
                           weight: FontWeight.w700,
-                          color: _Glass.pinkDeep,
+                          color: Glass.pinkDeep,
                         ).copyWith(height: 1)),
                     Text(_monthAbbr[start.month - 1],
-                        style: _Glass.body(size: 9, color: _Glass.textHint)),
+                        style: Glass.body(size: 9, color: Glass.textHint)),
                   ],
                 ),
                 const SizedBox(width: 14),
@@ -376,13 +376,13 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(_formatRange(start, end),
-                          style: _Glass.body(size: 13, weight: FontWeight.w700)),
+                          style: Glass.body(size: 13, weight: FontWeight.w700)),
                       const SizedBox(height: 3),
                       Text(
                           cycleLengthDays != null
                               ? '$lengthDays days \u00b7 Cycle length: $cycleLengthDays days'
                               : '$lengthDays days \u00b7 Most recent cycle',
-                          style: _Glass.body(size: 10, color: _Glass.textMuted)),
+                          style: Glass.body(size: 10, color: Glass.textMuted)),
                     ],
                   ),
                 ),
@@ -391,159 +391,13 @@ class _TypicalFlowScreenState extends State<TypicalFlowScreen> {
                   decoration: BoxDecoration(
                       color: _flowBg(flow), borderRadius: BorderRadius.circular(10)),
                   child: Text(flow ?? 'N/A',
-                      style: _Glass.body(
+                      style: Glass.body(
                           size: 10, weight: FontWeight.w600, color: _flowColor(flow))),
                 ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─── Glass design tokens ───────────────────────────────────────────────────────
-// Shared frosted-glass / ambient-blob design system reused across every
-// screen (Home, Mood, Diary, Learn, Lifestyle, Profile, and the auth flow).
-
-class _Glass {
-  static const Color pageBackground = Color(0xFFF3F1FB);
-
-  static const Color blue = Color(0xFF9FC8FF);
-  static const Color blueDeep = Color(0xFF5B93E0);
-  static const Color pink = Color(0xFFFFA7CE);
-  static const Color pinkDeep = Color(0xFFE0679A);
-  static const Color purple = Color(0xFFC6ACFF);
-  static const Color purpleDeep = Color(0xFF9A78E0);
-
-  static const Color textDark = Color(0xFF2B2638);
-  static const Color textMuted = Color(0xFF6E677D);
-  static const Color textHint = Color(0xFFA6A0B4);
-
-  static TextStyle heading({
-    double size = 22,
-    FontWeight weight = FontWeight.w700,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.quicksand(fontSize: size, fontWeight: weight, color: color);
-
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color color = textDark,
-  }) =>
-      GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: color);
-
-  /// Frosted translucent card: blurred backdrop + soft white glass fill.
-  static Widget card({
-    required Widget child,
-    double radius = 24,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double opacity = 0.55,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: purpleDeep.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static ButtonStyle primaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: blueDeep,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: blueDeep.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 0,
-    );
-  }
-}
-
-/// Three soft, blurred color blobs (blue / pink / purple) that gently drift
-/// behind the frosted glass content. Purely decorative — no state that
-/// affects the rest of the screen.
-class _AmbientBackground extends StatefulWidget {
-  const _AmbientBackground();
-
-  @override
-  State<_AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<_AmbientBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 22),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value * 2 * math.pi;
-        return Stack(
-          children: [
-            Container(color: _Glass.pageBackground),
-            Positioned(
-              top: -60 + 24 * math.sin(t),
-              left: -70 + 20 * math.cos(t),
-              child: _blob(size.width * 0.7, _Glass.blue.withOpacity(0.55)),
-            ),
-            Positioned(
-              top: size.height * 0.35 + 26 * math.cos(t * 0.85),
-              right: -90 + 22 * math.sin(t * 0.85),
-              child: _blob(size.width * 0.75, _Glass.pink.withOpacity(0.5)),
-            ),
-            Positioned(
-              bottom: -80 + 20 * math.sin(t * 1.15),
-              left: size.width * 0.15 + 18 * math.cos(t * 1.15),
-              child: _blob(size.width * 0.65, _Glass.purple.withOpacity(0.5)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double diameter, Color color) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }
